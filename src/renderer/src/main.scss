@@ -1160,7 +1160,7 @@ section.card-grid h3{
   min-width: 350px;
   width: 50%;
   max-width: 50%;
-  margin: 0 auto;
+  margin: 0 auto 0 20px;
   position: relative;
   z-index: 1;
 }
@@ -1585,9 +1585,9 @@ section.card-grid h3{
 #ellion {
     cursor: pointer;
     top: 5px;
-    left: -2%;
+    right: 10%;
     position: absolute;
-    width: 29%;
+    width: 35%;
     height: 800px;
     background: url(./img/ellion.png) no-repeat center center;
     background-size: contain;

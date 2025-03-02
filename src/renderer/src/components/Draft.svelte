@@ -598,7 +598,6 @@ function getDeckName(){
       {/if}
     </article>
   </section>
-  <a href="https://t.me/+w0mT8aSk6xVlMTQ6" target="_blank" id="ellion-text"></a>
 {:else}
 {#if $draft.step === 5}
   <aside class="right">
