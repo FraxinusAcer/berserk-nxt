@@ -13,6 +13,8 @@ from nltk.stem.snowball import SnowballStemmer
 
 from nltk.tokenize import word_tokenize
 
+CURRENT_SET = 50
+
 stop_words = set(['x', 'и', 'в', 'во', 'что', 'он', 'я', 'с', 'со', 'как', 'а', 'то', 'все', 'она', 'так', 'его', 'но', 'да', 'ты', 'к', 'у', 'же', 'вы', 'за', 'бы', 'ее', 'мне', 'было', 'вот', 'от', 'меня', 'еще', 'нет', 'о', 'из', 'ему', 'теперь', 'даже', 'ну', 'вдруг', 'ли', 'если', 'уже', 'или', 'ни', 'быть', 'был', 'него', 'до', 'вас', 'нибудь', 'опять', 'уж', 'вам', 'ведь', 'там', 'потом', 'себя', 'ничего', 'ей', 'они', 'тут', 'где', 'есть', 'надо', 'ней', 'для', 'мы', 'тебя', 'их', 'чем', 'была', 'сам', 'чтоб', 'без', 'будто', 'чего', 'раз', 'тоже', 'себе', 'под', 'ж', 'тогда', 'кто', 'этот', 'того', 'потому', 'этого', 'какой', 'совсем', 'ним', 'здесь', 'этом', 'один', 'почти', 'мой', 'тем', 'чтобы', 'нее', 'сейчас', 'были', 'куда', 'зачем', 'всех', 'никогда', 'можно', 'наконец', 'два', 'об', 'другой', 'хоть', 'после', 'над', 'больше', 'тот', 'эти', 'нас', 'про', 'них', 'какая', 'много', 'разве', 'эту', 'моя', 'впрочем', 'хорошо', 'свою', 'этой', 'иногда', 'лучше', 'чуть', 'том', 'такой', 'им', 'более', 'конечно', 'всю'])
 
 stemmer = SnowballStemmer("russian")
@@ -45,7 +47,6 @@ PROPS = {
     "vlh": "Вальхалла",
     "vmp": "Вампиризм",
     "fin": "Добивание",
-    #"inco": "Инкорнация",
     "cnc": "Концентрация",
     "dep": "На глубине",
     "sur": "На поверхности",
@@ -57,25 +58,27 @@ PROPS = {
     "das": "Рывок",
     "frm": "Строй",
     "tlp": "Телепортация",
-    "nec": "Трупоедство"
+    "nec": "Трупоедство",
+    "icr": "Инкарнация"
 }
 
 def process_tokens(row, icons):
     base_text = str(row['text']) if pd.notna(row['text']) else ""
     for icon in ICONS.keys():
         base_text = base_text.replace('{' + icon + '}', ' ' + ICONS[icon] + ' ')
-    text = re.sub(r'[^\w\d\s\+-]', '', base_text).replace(' - ', ' ').replace(' ', ' ')
-    text = ' '.join([row['name'], TYPE[int(row['type']) - 1], " ".join(str(row['class'] if pd.notna(row['class']) else "").split('.')), text])
+    text = re.sub(r'[^\w\d\s\+-]', '', base_text).replace(' - ', ' ').replace(' – ', ' ').replace(' – ', ' ').replace(' ', ' ')
+    name = ' '.join(row['name'].split('-') + [row['name']]) if '-' in row['name'] else row['name']
+    text = ' '.join([name, TYPE[int(row['type']) - 1], " ".join(str(row['class'] if pd.notna(row['class']) else "").split('.')), text])
     tags = []
     for icon in icons.keys():
         if icon != '' and icon in TAGS:
             tags.append(TAGS[icon])
             text += " " + ICONS[icon]
 
-    tokens = re.split(r'\s+', re.sub(r'[.,\/#!$%\^&\*;:{}=_`~()]«»—', '', text.lower().replace('ё','е') ))
+    tokens = re.split(r'\s+', re.sub(r'[.,\/#!$%\^&\*;:{}=_`~()]', '', text.lower().replace('ё','е') ))
     tokens = [stemmer.stem(word.lower()) for word in tokens if (not word.isdigit() or word.startswith('+') or word.startswith('-')) and word.lower() not in stop_words]
     #print((" ".join(tokens) + " " + " ".join(tags)).strip())
-    return " " + (" ".join(tokens) + " " + " ".join(tags)).strip()
+    return " " + (" ".join(tokens) + " " + " ".join(tags)).strip().replace(' - ', ' ').replace(' – ', ' ').replace(' – ', ' ').replace(' ', ' ')
 
 def process_icons(row):
     # Собираем все поля icons
@@ -90,7 +93,7 @@ with open('alts.json', 'r') as f:
     alts_data = json.load(f)
 
 # Загрузка данных из CSV файла
-df = pd.read_csv('50.csv', sep=',')
+df = pd.read_csv(f'{CURRENT_SET}.csv', sep=',')
 
 # Преобразование данных
 json_lines = []
@@ -99,10 +102,10 @@ for index, row in df.iterrows():
         continue
     #print(row['name'])
     icons = process_icons(row)
-    fullid = f"{50*1000 + int(row['number'])}"
+    fullid = f"{CURRENT_SET*1000 + int(row['number'])}"
     card = {
         "id": fullid,
-        "set_id": 50,
+        "set_id": CURRENT_SET,
         "number": int(row['number']),
         "name": row['name'],
         "rarity": int(row['rarity']),

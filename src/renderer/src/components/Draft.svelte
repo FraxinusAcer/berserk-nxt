@@ -44,7 +44,7 @@
   $: parsedUserMetod = validUserWeights(userMethod) ? JSON.parse(userMethod) : {}
 
   let visible_deck = []
-  $: visible_deck = ($draft.look_at === null || $draft.look_at === undefined) ? $draft.own_cards.filter((x) => x) : $draft.their_cards[$draft.look_at].filter((x) => x)
+  $: visible_deck = ($draft.look_at === null || $draft.look_at === undefined || !$draft.their_cards || !$draft.their_cards[$draft.look_at] || $draft.variant !== 'draft') ? $draft.own_cards.filter((x) => x) : $draft.their_cards[$draft.look_at].filter((x) => x)
 
   onMount(() => {
     if ($draft.step > 0) {
@@ -224,7 +224,7 @@
   }
 
   async function sendPickToServer(pickData) {
-    if($draft.variant !== 'draft' && $draft.show_score !== '1') return
+    if($draft.variant !== 'draft') return
     try {
       const response = await fetch(`https://berserk-nxt.ru/api/draft${$draft.show_score === '2' ? '_good' : ''}`, {
         method: 'POST',
@@ -444,7 +444,7 @@ function getDeckName(){
 </script>
 
 {#if $draft.step <= 3}
-  <a href="https://t.me/+w0mT8aSk6xVlMTQ6" target="_blank" id="ellion">&nbsp;</a>
+  <!-- a href="https://t.me/+w0mT8aSk6xVlMTQ6" target="_blank" id="ellion">&nbsp;</a -->
   <section
     class="content draft_form"
     use:shortcuts={{ keyboard: true }}

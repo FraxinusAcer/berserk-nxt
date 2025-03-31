@@ -27,17 +27,19 @@ extraResources:
     to: "app.asar.unpacked/resources/server"
 afterPack: "after-pack.js"
 win:
-  publisherName: "Igor Potapov"
   executableName: berserk-nxt
   icon: ./build/icon.ico
   artifactName: berserk-nxt-win-${version}-${arch}.${ext}
   target: ['nsis']
+  signtoolOptions:
+    publisherName: ["Igor Potapov"]
+    sign: "./certs/sign-win.js"
 nsis:
   artifactName: berserk-nxt-win-${version}-${arch}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
 mac:
@@ -53,7 +55,7 @@ mac:
   identity: "Igor Potapov (2AC4L7R5YG)"
   notarize: true
   artifactName: berserk-nxt-mac-${version}-${arch}.${ext}
-  target: ['dmg'] #, 'zip']
+  target: ['dmg', 'zip']
 dmg:
   artifactName: berserk-nxt-mac-${version}-${arch}.${ext}
   sign: false
@@ -73,4 +75,4 @@ deb:
 npmRebuild: false
 publish:
   provider: generic
-  url: https://updates.berserk-nxt.ru/
+  url: https://updates.berserk-nxt.ru/release/

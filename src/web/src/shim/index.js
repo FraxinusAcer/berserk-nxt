@@ -182,7 +182,12 @@ const stores = {
       '1.7.4': (store) => {
         if(!store.has("settings.draft_options.their_cards")) store.set("settings.deckbuilding_options.their_cards", Array.from({ length: 16 }, () => []))
         if(!store.has("settings.draft_options.look_at")) store.set("settings.deckbuilding_options.look_at", null)
-      }
+      },
+     '1.9.0': (store) => {
+       const boosters = store.get("settings.draft_options.boosters_set");
+       if(boosters.length == 4)
+         store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
+     }
     }
   })
 };
@@ -259,4 +264,8 @@ window.electron.ipcRenderer.on('load-draft', async () => {
   importDraft((result) => {
     window.electron.ipcRenderer.send('start-draft', null, result)
   })
+})
+
+window.electron.ipcRenderer.on('get-version', () => {
+  return window.__APP_VERSION__
 })

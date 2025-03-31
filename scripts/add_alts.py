@@ -15,7 +15,8 @@ def process_cards(cards_json):
         processed_cards.append(card)
         orig_id = card["id"]
         if card["alt"]: continue
-        if orig_id in addalts["f"]:
+        if card["set_id"] != 50: continue
+        if card["rarity"] > 2:
             if not card.get("alts"): card["alts"] = []
             card["alts"].append("f")
 
@@ -28,18 +29,17 @@ def process_cards(cards_json):
 
             processed_cards.append(alt_card)
 
-        if orig_id in addalts["altfpf"]:
-            if not card.get("alts"): card["alts"] = []
-            card["alts"].append("altfpf")
+        # if orig_id in addalts["altfpf"]:
+        #     if not card.get("alts"): card["alts"] = []
+        #     card["alts"].append("altfpf")
 
-            alt_card = card.copy()
-            alt_card["id"] = f"{orig_id}altfpf"
-            alt_card["prints"] = {}
-            alt_card["alts"] = []
-            alt_card["alt"] = "altfpf"
-            alt_card["altto"] = card["id"]
-
-            processed_cards.append(alt_card)
+        #     alt_card = card.copy()
+        #     alt_card["id"] = f"{orig_id}altfpf"
+        #     alt_card["prints"] = {}
+        #     alt_card["alts"] = []
+        #     alt_card["alt"] = "altfpf"
+        #     alt_card["altto"] = card["id"]
+        #    processed_cards.append(alt_card)
 
     return processed_cards
 

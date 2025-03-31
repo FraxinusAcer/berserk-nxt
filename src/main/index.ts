@@ -6,7 +6,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { default_settings } from '../renderer/src/stores/defaults.js'
 import { readCollection, writeCollection, readDeck, writeTTS, readTTS, readCompact } from '../renderer/src/utils/formats.js'
-import { checkForUpdates, installAddon, deinstallAddon } from './updater.js'
+import { installAddon, deinstallAddon } from './updater.js'
 import fs from 'fs-extra'
 import axios from 'axios'
 
@@ -79,7 +79,12 @@ const settings_store = new Store({
     '1.7.4': (store) => {
       if(!store.has("settings.draft_options.their_cards")) store.set("settings.deckbuilding_options.their_cards", Array.from({ length: 16 }, () => []))
       if(!store.has("settings.draft_options.look_at")) store.set("settings.deckbuilding_options.look_at", null)
-    }
+    },
+    '1.9.0': (store) => {
+      const boosters = store.get("settings.draft_options.boosters_set");
+      if(boosters.length == 4)
+        store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
+    },
   }
 })
 
@@ -335,18 +340,17 @@ app.whenReady().then(async () => {
     });
   })
 
+  ipcMain.on('get-version', (event) => {
+    event.returnValue = app.getVersion()
+  })
+
   createWindow()
 
   try{
-    autoUpdater.setFeedURL({provider: 'generic', url: 'http://updates.berserk-nxt.ru/'});
+    autoUpdater.setFeedURL({provider: 'generic', url: 'http://updates.berserk-nxt.ru/release/'});
     autoUpdater.checkForUpdates();
   } catch (e) {
     console.log("Error check updates", e);
-  }
-
-  if(await checkForUpdates()){
-    app.relaunch()
-    app.exit()
   }
 
   app.on('activate', function () {
@@ -373,7 +377,8 @@ app.on('quit', () => {
 let submenuTemplate : MenuItemConstructorOptions[] = [
   { label: 'Перезагрузить приложение', role: 'reload' },
   { label: 'Указать путь к настройкам', click: selectFolder },
-  { label: 'Посмотреть резервные копии', click: () => { shell.openPath(settings_path || dirname(settings_store.path))} }
+  { label: 'Посмотреть резервные копии', click: () => { shell.openPath(settings_path || dirname(settings_store.path))} },
+  { label: 'Сбросить настройки', click: resetSettings },
 ]
 
 if (ENABLE_AI) {
@@ -977,4 +982,22 @@ function printDeckLists(data) {
   // }).catch(err => {
   //   console.log(err);
   // });
+}
+
+
+function resetSettings() {
+  const response = dialog.showMessageBoxSync({
+    type: 'warning',
+    buttons: ['Отменить', 'Да, сбросить'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Подтверди сброс настроек',
+    message: `Уверен, что нужно сбросить настройки? (Колоды и коллекция не пострадает)`
+  })
+
+  if (response === 1) {
+    settings_store.set('settings', default_settings)
+    app.relaunch()
+    app.quit()
+  }
 }

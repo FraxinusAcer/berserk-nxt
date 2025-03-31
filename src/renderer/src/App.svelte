@@ -173,3 +173,13 @@
 <DropZone>
   <h3>Перетащи файлы сюда,<br /><em>попробуем их импортировать...</em></h3>
 </DropZone>
+
+<svg width="0" height="0" style="position: absolute;">
+  <filter id="removeWhite">
+    <feColorMatrix type="matrix" values="
+      1 0 0 0 0
+      0 1 0 0 0
+      0 0 1 0 0
+      -1 0 -1 1 1"/>
+  </filter>
+</svg>

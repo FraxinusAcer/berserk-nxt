@@ -67,7 +67,7 @@ export const default_draft_options = {
   method: 'motd',
   variant: 'draft',
   cardSize: {booster: 180, draftdeck: 130, deck: 160, side: 130},
-  boosters_set: ["30","40","40","","",""],
+  boosters_set: ["40","50","50","","",""],
   boosters: [],
   own_cards: [],
   side: [],

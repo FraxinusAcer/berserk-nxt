@@ -76,7 +76,7 @@
   function resetFilters(_event){
     let setsOptions = Object.keys(sets)
     if(options_name === 'deckbuilding_options')
-      setsOptions = setsOptions.filter(x => x !== '22' && x !== '50')
+      setsOptions = setsOptions.filter(x => x !== '22' && x !== '10')
     options.set({...default_settings[options_name],
       cardSize: $options.cardSize,
       dimAbsent: $options.dimAbsent,

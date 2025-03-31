@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { version } from './package.json';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
@@ -24,6 +25,9 @@ function collectFilesRecursively(dir, fileList = []) {
 export default defineConfig({
   envPrefix: 'VITE_',
   root: './src/web/',
+  define: {
+     __APP_VERSION__: JSON.stringify(version)
+  },
   plugins: [
     viteStaticCopy({
       targets: [

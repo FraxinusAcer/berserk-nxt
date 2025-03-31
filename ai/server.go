@@ -154,7 +154,7 @@ func initFeatureNames() {
     }
 
     contextExtraNames := []string{
-        "total_options", "option_number", "option_color", "option_rarity",
+        "total_options", "option_color", "option_rarity",
         "option_elite", "option_type", "option_uniq",
     }
     contextAggNames := []string{"context_life_sum", "context_move_sum"}
@@ -182,13 +182,36 @@ func initFeatureNames() {
         optionIconNames = append(optionIconNames, fmt.Sprintf("option_icon_%s", icon))
     }
 
+    // Interaction feature names
+    interactionFeatureNames := []string{
+        "cost_to_life_ratio", "hit_efficiency", "mobility_score",
+        "curve_improvement", "cost_slot_percentage",
+    }
+
+    // Synergy feature names
+    var colorSynergyNames []string
+    for _, color := range []int{1, 2, 4, 8, 16, 32} {
+        colorSynergyNames = append(colorSynergyNames, fmt.Sprintf("color_synergy_%d", color))
+    }
+
+    var classSynergyNames []string
+    for _, cls := range globalClasses {
+        classSynergyNames = append(classSynergyNames, fmt.Sprintf("class_synergy_%s", cls))
+    }
+
     allFeatureNames = append([]string{}, baseFeatureNames...)
     allFeatureNames = append(allFeatureNames, contextAggNames...)
     allFeatureNames = append(allFeatureNames, contextExtraNames...)
     allFeatureNames = append(allFeatureNames, optionNumericNames...)
     allFeatureNames = append(allFeatureNames, optionClassNames...)
     allFeatureNames = append(allFeatureNames, optionIconNames...)
+    allFeatureNames = append(allFeatureNames, interactionFeatureNames...)
+    allFeatureNames = append(allFeatureNames, colorSynergyNames...)
+    allFeatureNames = append(allFeatureNames, classSynergyNames...)
     //allFeatureNames = append(allFeatureNames, optionTypeNames...)
+
+    // Выводим количество признаков для отладки
+    log.Printf("Количество признаков в Go-сервере: %d", len(allFeatureNames))
 }
 
 // ==================== Извлечение признаков ====================
@@ -284,7 +307,6 @@ func extractFeatures(context []int, option int, options []int) []float64 {
     // Признаки для опции
     totalOptions := float64(len(options))
     optionCard, ok := cardInfo[option]
-    optionNumber := float64(option % 1000)
     var optionColor, optionRarity, optionElite, optionType, optionUniq float64
     if ok {
         optionColor = float64(optionCard.Color)
@@ -304,7 +326,7 @@ func extractFeatures(context []int, option int, options []int) []float64 {
         optionColor, optionRarity, optionElite, optionType, optionUniq = 0, 0, 0, 0, 0
     }
     baseOptionFeatures := []float64{
-        totalOptions, optionNumber, optionColor, optionRarity, optionElite, optionType, optionUniq,
+        totalOptions, optionColor, optionRarity, optionElite, optionType, optionUniq,
     }
 
     optionClassFeatures := make([]float64, len(globalClasses))
@@ -358,6 +380,90 @@ func extractFeatures(context []int, option int, options []int) []float64 {
     }
     optionNumericFeatures := []float64{optionCost, optionLife, optionMove, hitAvg, hitMin, hitMax}
 
+    // Дополнительные взаимодействующие признаки
+    var costToLifeRatio, hitEfficiency, mobilityScore float64
+    if ok && optionCost > 0 {
+        // Соотношение жизни к стоимости
+        costToLifeRatio = optionLife / optionCost
+
+        // Эффективность урона на стоимость
+        hitEfficiency = hitAvg / optionCost
+
+        // Эффективность передвижения на стоимость
+        mobilityScore = optionMove / optionCost
+    }
+
+    // Признаки кривой маны
+    var curveImprovement, costSlotPercentage float64
+    costCounts := make([]float64, 10)
+    for _, cid := range context {
+        card, exists := cardInfo[cid]
+        if exists && card.Cost >= 0 && card.Cost < 10 {
+            costIndex := int(card.Cost)
+            costCounts[costIndex]++
+        }
+    }
+
+    totalCards := float64(len(context))
+    if totalCards > 0 && ok {
+        // Распределение по стоимости
+        costDistribution := make([]float64, 10)
+        for i, count := range costCounts {
+            costDistribution[i] = count / totalCards
+        }
+
+        // Идеальная кривая маны (примерная)
+        idealCurve := []float64{0.15, 0.20, 0.25, 0.15, 0.10, 0.05, 0.05, 0.03, 0.02, 0.0}
+
+        // Вычисляем потребности кривой
+        curveNeeds := make([]float64, 10)
+        for i, ideal := range idealCurve {
+            if costDistribution[i] < ideal {
+                curveNeeds[i] = ideal - costDistribution[i]
+            }
+        }
+
+        // Получаем стоимость опции
+        optionCostIndex := int(optionCost)
+        if optionCostIndex >= 0 && optionCostIndex < 10 {
+            // Насколько эта карта улучшает кривую
+            curveImprovement = curveNeeds[optionCostIndex]
+
+            // Процент карт с такой же стоимостью
+            costSlotPercentage = costDistribution[optionCostIndex]
+        }
+    }
+
+    // Признаки цветовой синергии
+    colorSynergy := make([]float64, 6) // для 6 цветов
+    if ok {
+        optionColorInt := int(optionColor)
+        for i, colorVal := range []int{1, 2, 4, 8, 16, 32} {
+            if optionColorInt == colorVal {
+                colorSynergy[i] = contextColors[colorVal]
+            }
+        }
+    }
+
+    // Признаки классовой синергии
+    classSynergy := make([]float64, len(globalClasses))
+    if ok {
+        for _, cls := range optionCard.Classes {
+            trimmed := strings.ReplaceAll(strings.TrimSpace(cls), " ", "_")
+            for i, globalCls := range globalClasses {
+                if trimmed == globalCls {
+                    classSynergy[i] = contextClassCounts[globalCls]
+                    break
+                }
+            }
+        }
+    }
+
+    // Объединяем взаимодействующие признаки
+    interactionFeatures := []float64{
+        costToLifeRatio, hitEfficiency, mobilityScore, curveImprovement, costSlotPercentage,
+    }
+
     // optionTypeFeatures := make([]float64, len(globalTypes))
     // if ok {
     //     for i, t := range globalTypes {
@@ -373,6 +479,9 @@ func extractFeatures(context []int, option int, options []int) []float64 {
     features = append(features, optionNumericFeatures...)
     features = append(features, optionClassFeatures...)
     features = append(features, optionIconFeatures...)
+    features = append(features, interactionFeatures...)
+    features = append(features, colorSynergy...)
+    features = append(features, classSynergy...)
     //features = append(features, optionTypeFeatures...)
 
     return features
