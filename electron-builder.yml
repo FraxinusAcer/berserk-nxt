@@ -31,9 +31,9 @@ win:
   icon: ./build/icon.ico
   artifactName: berserk-nxt-win-${version}-${arch}.${ext}
   target: ['nsis']
-  signtoolOptions:
-    publisherName: ["Igor Potapov"]
-    sign: "./certs/sign-win.js"
+  # signtoolOptions:
+  #   publisherName: ["Igor Potapov"]
+  #   sign: "./certs/sign-win.js"
 nsis:
   artifactName: berserk-nxt-win-${version}-${arch}.${ext}
   shortcutName: ${productName}

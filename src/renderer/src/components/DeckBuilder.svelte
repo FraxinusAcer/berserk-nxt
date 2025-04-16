@@ -17,7 +17,9 @@
   import Card from './includes/Card.svelte'
   import Filter from './includes/Filter.svelte'
   import Popup from './includes/Popup.svelte'
+  import DeckCharts from './includes/DeckCharts.svelte'
 
+  const isWeb = window.electron.ipcRenderer.sendSync('get-isweb')
   export let deck_id, show_full, deckName
   $: {
     deck_id = $currentDeck.deck_id
@@ -34,6 +36,7 @@
   $: order = orders[$options.order || 0]
 
   let undo = []
+  let chart_total = true
 
   onMount(() => {
     if(deck_id === null) return navigate('/app/decks')
@@ -177,14 +180,25 @@
     });
   }
 
+  function addCardAi(_e){
+    if(userDeck.length >= 30) return;
+    window.electron.ipcRenderer.invoke('predict-card', userDeck).then((card_id) => {
+      addOne(deck_id, card_id)
+    })
+  }
+
   let grouppedCards
   $: grouppedCards = groupCards($user_decks['decks'][deck_id]?.cards || [], order)
+
+  let userDeck
+  $: userDeck = $user_decks['decks'][deck_id] ? $user_decks['decks'][deck_id].cards : []
 </script>
 
 {#if true}
 {@const { tcount, elite, uniq, lc, life, mc, move, ac, atk, icons } = statistics((!show_full || deck_id === null) ? $filteredSortedCards : byId($user_decks['decks'][deck_id].cards))}
-<Filter noSide={show_full && deck_id !== null} options_name={options_name}
+<Filter noSide={show_full && deck_id !== null} options_name={options_name} noColumns={show_full}
     currentDeck={$user_decks['decks'][deck_id]?.cards} currentDeckName={deckName}>
+  {#if !show_full}
   <dl>
     <dt>Выбрано карт:</dt>
     <dd>{tcount}</dd>
@@ -233,6 +247,9 @@
     <dt>Защита от разрядов:</dt>
     <dd>{icons['zor']}</dd>
   </dl>
+  {:else}
+  <DeckCharts deck={userDeck} bind:chart_total />
+  {/if}
 </Filter>
 {/if}
 
@@ -246,7 +263,7 @@
      </button>
     </div>
     <div class="decklist" class:tighter={grouppedCards.length > 21} class:tightest={grouppedCards.length > 25}
-        use:shortcuts={{keyboard: true}} on:action:number={setCount} on:action:close={() => { if(!$popupStore.isOpen && document.activeElement !== document.getElementById('search')){ navigate('/app/decks') } } } on:action:undo={doUndo}>
+        use:shortcuts={{keyboard: true}} on:action:number={setCount} on:action:close={() => { if(!$popupStore.isOpen && document.activeElement !== document.getElementById('search')){ navigate('/app/decks') } } } on:action:undo={doUndo} on:action:help={addCardAi}>
       {#each grouppedCards as [card, count]}
         {#if card}
          <div data-cardid={card.id} class={`card_line bg-${card.color} rarity-${card.rarity}`} use:shortcuts={{keyboard: true}}
@@ -272,13 +289,21 @@
          {/if}
       {/each}
     </div>
+    {#if userDeck.length < 30 && !isWeb}
+    <button on:click={addCardAi} class="hint outline low-profile-hidden">
+      <svg width="24px" height="24px" viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19.0006 9.03002C19.0007 8.10058 18.8158 7.18037 18.4565 6.32317C18.0972 5.46598 17.5709 4.68895 16.9081 4.03734C16.2453 3.38574 15.4594 2.87265 14.5962 2.52801C13.7331 2.18336 12.8099 2.01409 11.8806 2.03002C10.0966 2.08307 8.39798 2.80604 7.12302 4.05504C5.84807 5.30405 5.0903 6.98746 5.00059 8.77001C4.95795 9.9595 5.21931 11.1402 5.75999 12.2006C6.30067 13.2609 7.10281 14.1659 8.09058 14.83C8.36897 15.011 8.59791 15.2584 8.75678 15.5499C8.91565 15.8415 8.99945 16.168 9.00059 16.5V18.03H15.0006V16.5C15.0006 16.1689 15.0829 15.843 15.24 15.5515C15.3971 15.26 15.6241 15.0121 15.9006 14.83C16.8528 14.1911 17.6336 13.328 18.1741 12.3167C18.7147 11.3054 18.9985 10.1767 19.0006 9.03002V9.03002Z" stroke="#D93526" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M15 21.04C14.1345 21.6891 13.0819 22.04 12 22.04C10.9181 22.04 9.86548 21.6891 9 21.04" stroke="#D93526" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    {/if}
     <div class="deck_stats">
-      <span class="colors">{#each collectColors($user_decks['decks'][deck_id].cards) as color}<span class={`color color-${color}`}></span>{/each}</span>
+      <span class="colors">{#each collectColors(userDeck) as color}<span class={`color color-${color}`}></span>{/each}</span>
       <span class="elite">
-        <span class="elite-gold">{countOfType($user_decks['decks'][deck_id].cards, 'elite', true)}</span>
-        <span class="elite-silver">{countOfType($user_decks['decks'][deck_id].cards, 'elite', false)}</span>
+        <span class="elite-gold">{countOfType(userDeck, 'elite', true)}</span>
+        <span class="elite-silver">{countOfType(userDeck, 'elite', false)}</span>
       </span>
-      <h4><span style={$user_decks['decks'][deck_id].cards.length != 30 ? "color: #D93526" : ""}>{$user_decks['decks'][deck_id].cards.length}</span> / 30</h4>
+      <h4><span style={userDeck.length != 30 ? "color: #D93526" : ""}>{userDeck.length}</span> / 30</h4>
     </div>
     <button class="outline low-profile-hidden driver-deckbuilder-deal" style="width: 100%; margin-top: 10px;" use:shortcuts on:action:primary={() => { navigate('/app/deal/'); }}>Раздать колоду</button>
     <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 10px;">
@@ -321,7 +346,7 @@
   {/if}
 
   {#if $user_decks['decks'][deck_id]}
-    {@const deckGroupped = groupCards($user_decks['decks'][deck_id].cards, show_full ? 'asis' : order)}
+    {@const deckGroupped = groupCards(userDeck, show_full ? 'asis' : order)}
     {#key deckGroupped}
     <div style:display={ show_full ? '' : 'none' }>
       <section id="deck-view" class="card-grid top-text-visible" style={`--card-min-size: ${$options.deckSize}px`}
@@ -338,7 +363,7 @@
               dimAbsent={$options.dimAbsent}
               showBan={false}
               showPrice={false}
-              showTopText={Array.from({length: Math.min(count, 4)}, (_, i) => probability($user_decks['decks'][deck_id].cards.length, count, i+1)).join(" / ")}
+              showTopText={Array.from({length: Math.min(count, 4)}, (_, i) => probability(userDeck.length, count, i+1)).join(" / ")}
               card_list={deckGroupped.map(group => group[0]?.id)}
             />
            </div>
@@ -347,13 +372,13 @@
       </section>
       <hr />
       <div class="deck_stats">
-        <span class="colors">{#each collectColors($user_decks['decks'][deck_id].cards) as color}<span class={`color color-${color}`}></span>{/each}</span>
+        <span class="colors">{#each collectColors(userDeck) as color}<span class={`color color-${color}`}></span>{/each}</span>
         <h4 style="text-align: center">
-          <span style="font-size: 70%">LIF:</span> {byId($user_decks['decks'][deck_id].cards).filter((x) => x).reduce((acc, card) => { return acc + card.life || 0}, 0)}
+          <span style="font-size: 70%">LIF:</span> {byId(userDeck).filter((x) => x).reduce((acc, card) => { return acc + card.life || 0}, 0)}
           &nbsp; &nbsp;
-          <span style="font-size: 70%">ATK:</span> {byId($user_decks['decks'][deck_id].cards).filter((x) => x).reduce((acc, card) => { return (card.hit || [0,0,0]).map((num, index) => num + acc[index])}, [0,0,0]).join('-')}
+          <span style="font-size: 70%">ATK:</span> {byId(userDeck).filter((x) => x).reduce((acc, card) => { return (card.hit || [0,0,0]).map((num, index) => num + acc[index])}, [0,0,0]).join('-')}
         </h4>
-        <h4 style="text-align: right;"><span>{byId($user_decks['decks'][deck_id].cards).filter((x) => x).reduce((acc, card) => { return acc + get_karapet_score(card.set_id, card.number) / 10 * card.cost}, 0).toFixed(1)}</span></h4>
+        <h4 style="text-align: right;"><span>{byId(userDeck).filter((x) => x).reduce((acc, card) => { return acc + get_karapet_score(card.set_id, card.number) / 10 * card.cost}, 0).toFixed(1)}</span></h4>
       </div>
      </div>
     {/key}

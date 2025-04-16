@@ -132,6 +132,13 @@ export function collectColors(deck_cards) {
   ].sort((a, b) => a - b)
 }
 
+export function countColors(deck_cards) {
+  return deck_cards.reduce((ret, card_id) => {
+      if(byId(card_id)) ret[`${byId(card_id).color}`] += 1
+      return ret
+    }, {"1": 0, "2": 0, "4": 0, "8": 0, "16": 0, "32": 0})
+}
+
 export function statistics(cards) {
 let defs = {'tcount': 0, 'elite': 0, 'uniq': 0, 'lc': 0, 'life': 0, 'ac': 0, 'atk': [0,0,0,0], 'mc': 0, 'move': 0,
   'icons': {'':0,'ova':0,'ovz':0,'ovs':0,'regen':0,'armor':0,'direct':0,'stamina':0,
@@ -140,7 +147,7 @@ let defs = {'tcount': 0, 'elite': 0, 'uniq': 0, 'lc': 0, 'life': 0, 'ac': 0, 'at
   return cards.reduce((acc, card) => {
     if(!card) return acc
     acc["tcount"] += 1
-    Object.keys(card.icons).forEach(i => acc['icons'][i] += 1)
+    Object.keys(card.icons || {}).forEach(i => acc['icons'][i] += 1)
     if(card.hit && card.hit.length === 3) {
       acc["ac"] += 1
       acc["atk"][0] += card.hit[0]
@@ -168,4 +175,15 @@ export function countOfType(deck_cards, key, value) {
   return deck_cards.reduce((acc, card_id) => {
     return acc + (byId(card_id) && byId(card_id)[key] === value ? 1 : 0)
   }, 0)
+}
+
+export function groupByCostAndElite(deck_cards) {
+  return deck_cards.reduce((acc, card_id) => {
+    const card = byId(card_id)
+    if(!card) return acc
+    if (!acc[card["cost"]]) acc[card["cost"]] = [0,0]
+    if(card["elite"]) acc[card["cost"]][0] += 1
+    else acc[card["cost"]][1] += 1
+    return acc
+  }, {})
 }

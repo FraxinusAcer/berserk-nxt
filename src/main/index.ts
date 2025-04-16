@@ -1,35 +1,46 @@
 import { app, shell, BrowserWindow, Menu, ipcMain, dialog, MessageBoxOptions, MenuItemConstructorOptions } from 'electron'
-const { autoUpdater } = require('electron-updater');
+const { autoUpdater } = require('electron-updater')
 import { join, dirname } from 'path'
-import { v4 } from 'uuid';
+import { v4 } from 'uuid'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { default_settings } from '../renderer/src/stores/defaults.js'
 import { readCollection, writeCollection, readDeck, writeTTS, readTTS, readCompact } from '../renderer/src/utils/formats.js'
 import { installAddon, deinstallAddon } from './updater.js'
+import { DeckRecommender } from './predictor.js'
 import fs from 'fs-extra'
 import axios from 'axios'
 
 const ENABLE_AI = true
 
-const resources_path = is.dev ? join(__dirname, '../../resources') : join(process.resourcesPath, 'app.asar.unpacked', 'resources');
-let card_data = JSON.parse(fs.readFileSync(join(resources_path, 'data.json'), 'utf8'));
-const card_const = JSON.parse(fs.readFileSync(join(resources_path, 'const.json'), 'utf8'));
+const resources_path = is.dev ? join(__dirname, '../../resources') : join(process.resourcesPath, 'app.asar.unpacked', 'resources')
+let card_data = JSON.parse(fs.readFileSync(join(resources_path, 'data.json'), 'utf8'))
+const card_const = JSON.parse(fs.readFileSync(join(resources_path, 'const.json'), 'utf8'))
+const predictor = new DeckRecommender(card_data)
 
 const addon_names : string[] = []
 fs.readdirSync(resources_path).filter(file => file.startsWith('addon') && file.endsWith('.json')).forEach(addon_name => {
   addon_names.push(addon_name)
-  const data_addon = JSON.parse(fs.readFileSync(join(resources_path, addon_name), 'utf8'));
-  if(data_addon['cards']) card_data = card_data.concat(data_addon['cards']);
-  if(data_addon['const']) deepMerge(card_const, data_addon['const']);
+  const data_addon = JSON.parse(fs.readFileSync(join(resources_path, addon_name), 'utf8'))
+  if(data_addon['cards']) card_data = card_data.concat(data_addon['cards'])
+  if(data_addon['const']) deepMerge(card_const, data_addon['const'])
 })
 
-const tar = require('tar');
-const chokidar = require('chokidar');
-const jsQR = require('jsqr');
-const jpeg = require('jpeg-js');
-const Store = require('electron-store');
-const os = require('os');
+card_data = card_data.flatMap((card) => {
+  const ret = [{...card, alt: "", altto: null}]
+  for (const alt of card["alts"]) {
+    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, ban: card["ban"] ? card["ban"][alt] : false })
+  }
+  if(card["ban"]) ret[0]["ban"] = card["ban"][""]
+  return ret
+})
+
+const tar = require('tar')
+const chokidar = require('chokidar')
+const jsQR = require('jsqr')
+const jpeg = require('jpeg-js')
+const Store = require('electron-store')
+const os = require('os')
 
 const settings_store = new Store({
   name: 'user_settings',
@@ -132,7 +143,7 @@ const stores = {
           if(deck['cards'].length < 30) deck['tags'].push('В работе')
 
         });
-        store.set("decks.decks", decks);
+        store.set("decks.decks", decks)
       },
     }
   }),
@@ -163,7 +174,7 @@ const watchers = {
         setTimeout(()=> watchers['decks']['updating'] = false, 100)
       else
         BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('refresh', null, null, stores['decks'].get('decks'));
+          win.webContents.send('refresh', null, null, stores['decks'].get('decks'))
         })
     }),
     'updating': false
@@ -210,10 +221,10 @@ function deepMerge(target: object, source: object): object {
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       if (typeof source[key] === 'object' && source[key] !== null) {
-        if (!target[key]) target[key] = Array.isArray(source[key]) ? [] : {};
-        deepMerge(target[key], source[key]);
+        if (!target[key]) target[key] = Array.isArray(source[key]) ? [] : {}
+        deepMerge(target[key], source[key])
       } else {
-        target[key] = source[key];
+        target[key] = source[key]
       }
     }
   }
@@ -247,6 +258,7 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
 }
 
 app.whenReady().then(async () => {
@@ -344,7 +356,16 @@ app.whenReady().then(async () => {
     event.returnValue = app.getVersion()
   })
 
+  ipcMain.on('get-isweb', (event) => {
+    event.returnValue = false
+  })
+
+  ipcMain.handle('predict-card', async (_event, deck) => {
+    return await predictor.predict(deck)
+  })
+
   createWindow()
+  await predictor.init(join(resources_path, 'deck_predictor.onnx'))
 
   try{
     autoUpdater.setFeedURL({provider: 'generic', url: 'http://updates.berserk-nxt.ru/release/'});
@@ -674,11 +695,11 @@ function runHelp(){
   });
 }
 
-
+let default_save_path = app.getPath('downloads')
 function exportDeck(deck, name, format) {
   dialog.showSaveDialog({
     title: 'Сохранить колоду',
-    defaultPath: join(app.getPath('downloads'), name + '.' + (format == "proberserk" ? 'txt' : 'brsd')),
+    defaultPath: join(default_save_path, name + '.' + (format == "proberserk" ? 'txt' : 'brsd')),
     buttonLabel: 'Сохранить',
     filters: [
       format == "proberserk" ?
@@ -699,8 +720,10 @@ function exportDeck(deck, name, format) {
         });
         content = ret.join("\n");
       }
-      if(file.filePath)
+      if(file.filePath) {
+        default_save_path = dirname(file.filePath);
         fs.writeFileSync(file.filePath.toString(), `#${name}\n` + content, 'utf-8');
+      }
     }
   }).catch(err => {
     console.log(err);
@@ -711,6 +734,7 @@ function importDeck() {
   dialog.showOpenDialog({
     title: 'Загрузить колоду',
     properties: ['openFile'],
+    defaultPath: default_save_path,
     filters: [
       { name: 'Берсерк файлы, ProBerserk, TTS или JPG', extensions: ['brsd', 'txt', 'html', 'json', 'jpg', 'jpeg'] },
     ]
@@ -727,6 +751,7 @@ function importDeck() {
       const lastSlashIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
       const fileNameWithExtension = filePath.substring(lastSlashIndex + 1);
       const deckFileName = fileNameWithExtension.replace(/\.[^/.]+$/, "");
+      default_save_path = dirname(filePath);
 
       if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
         const image = jpeg.decode(data);

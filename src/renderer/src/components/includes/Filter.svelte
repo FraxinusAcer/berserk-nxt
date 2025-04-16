@@ -13,6 +13,7 @@
 
   export let options_name = '';
   export let noSide = false
+  export let noColumns = false
   export let currentDeck = []
   export let currentDeckName = "Неизвестный пул"
 
@@ -134,7 +135,7 @@
             && ($options.rarities.length == 0 || $options.rarities.includes(card.rarity.toString()))
             && ($options.colors.length == 0 || $options.colors.includes(card.color.toString()))
             && ($options.creature_types.length == 0 || $options.creature_types.includes(card.type.toString()))
-            && ($options.collection_alts.length == 0 || $options.collection_alts.includes(card.alt) || ($options.collection_alts.includes("alt") && card.alt.startsWith("alt_")) || ($options.collection_alts.includes("promo") && (card.promo === true || ["alt","altf","pf","altpf","fpf","altfpf"].includes(card.alt) )))
+            && ($options.collection_alts.length == 0 || $options.collection_alts.includes(card.alt) || ($options.collection_alts.includes("alt") && card.alt.startsWith("alt_")) || ($options.collection_alts.includes("promo") && (card.promo === true || ["alt","altf","pf","altpf","fpf","altfpf","of"].includes(card.alt) )))
             && ($options.moves.length == 0 || $options.moves.includes((card.move || 0).toString()))
             && ($options.min_hits.length == 0 || $options.min_hits.includes((card.hit ? card.hit[0] || 0 : 0).toString()))
             && ($options.mid_hits.length == 0 || $options.mid_hits.includes((card.hit ? card.hit[1] || 0 : 0).toString()))
@@ -178,7 +179,7 @@
 
 
 {#if $showStats.isOpen}
-  <aside class="stats" transition:slide={{ duration: 150, easing: quintOut }} class:has_left={$filterAside.isOpen && !noSide} class:has_right={options_name === 'deckbuilding_options'}>
+  <aside class="stats" transition:slide={{ duration: 150, easing: quintOut }} class:has_left={$filterAside.isOpen && !noSide} class:has_right={options_name === 'deckbuilding_options'} class:no_columns={noColumns}>
     <slot></slot>
   </aside>
 {/if}

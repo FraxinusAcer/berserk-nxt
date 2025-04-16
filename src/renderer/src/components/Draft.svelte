@@ -6,10 +6,14 @@
   import { sortable } from '../utils/sortable.js'
   import { takeScreenshot } from '../utils/ux.js'
   import { cardsStore } from '../stores/cards.js'
+  import { slide } from 'svelte/transition';
+  import { quintOut } from 'svelte/easing';
+
 
   import {
     popupStore,
     togglePopup,
+    showStats,
     setSecondLevelMenu,
     setDeckId,
     loader,
@@ -32,12 +36,14 @@
 
   import Card from './includes/Card.svelte'
   import Popup from './includes/Popup.svelte'
+  import DeckCharts from './includes/DeckCharts.svelte'
 
   const options_name = 'draft_options'
   let draft = option_set[options_name]
 
   let deck_name = ""
   let lock_click = false
+  let chart_total = true
 
   let userMethod = null
   let parsedUserMetod = {}
@@ -599,6 +605,15 @@ function getDeckName(){
     </article>
   </section>
 {:else}
+{#if $showStats.isOpen}
+    <aside class="stats" transition:slide={{ duration: 150, easing: quintOut }} class:has_left={false} class:has_right={$draft.step === 5} class:no_columns={true}>
+      {#if $draft.show_score !== '2'}
+        {#key visible_deck}
+          <DeckCharts deck={visible_deck} bind:chart_total />
+        {/key}
+      {/if}
+    </aside>
+{/if}
 {#if $draft.step === 5}
   <aside class="right">
     <section>
@@ -606,9 +621,11 @@ function getDeckName(){
         <summary>{#if $draft.look_at === null}Моя колода{:else}Колода бота #{$draft.look_at + 1}{/if}</summary>
         <ul>
           <li><button class="a" on:click|preventDefault={() => { draft.set({...$draft, look_at: null}); document.getElementById('select-cards-action').removeAttribute('open') }}>Моя колода</button></li>
+          {#if $draft.variant == 'draft'}
           {#each Array($draft.players-1) as _, i}
             <li><button class="a" on:click|preventDefault={() => { draft.set({...$draft, look_at: i}); document.getElementById('select-cards-action').removeAttribute('open') }}>Колода бота #{i + 1}</button></li>
           {/each}
+          {/if}
         </ul>
       </details>
 
@@ -836,7 +853,7 @@ function getDeckName(){
     </section>
   {/key}
 
-  {#if $draft.step === 5 && $draft.look_at === null}
+  {#if $draft.step === 5 && $draft.look_at === null && $draft.side.length > 0}
     <hr />
     {#key $draft.side}
       <div style="min-height: 80vw;">

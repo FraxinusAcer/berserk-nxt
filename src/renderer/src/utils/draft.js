@@ -76,10 +76,44 @@ function getBoosterV2(cardsByRarityAndColor) {
   return booster;
 }
 
+function getBoosterV3(cardsByRarityAndColor) {
+  function selectRandomCardsFromAll(cardsByColor, count, excludeCards = []) {
+    const allCards = Object.values(cardsByColor).flat()
+    const filteredCards = allCards.filter(card => !excludeCards.includes(card))
+    return selectRandomCards(filteredCards, count)
+  }
+
+  function selectRandomCards(cardsArray, count) {
+    const shuffled = shuffleArray(cardsArray)
+    return shuffled.slice(0, count)
+  }
+
+  const booster = []
+
+  if (Math.random() < 4 / 24 && Object.keys(cardsByRarityAndColor[4]).length > 0) {
+    booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[4], 1))
+  } else {
+    booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[3], 1))
+  }
+
+  if(Math.random() < 1 / 100){
+    booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[2], 2))
+    booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[2], 1))
+  } else {
+    booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[2], 3))
+  }
+
+  const commonSelected = selectRandomCardsFromAll(cardsByRarityAndColor[1], 6)
+  booster.push(...commonSelected)
+  booster.push(...selectRandomCardsFromAll(cardsByRarityAndColor[1], 2, (Math.random() < 1 / 100) ? [] : commonSelected))
+
+  return booster
+}
+
+
 export function getBooster(cards, set_id) {
   const cardsByRarityAndColor = prepareCardsByRarityAndColor(cards, set_id);
-  return getBoosterV2(cardsByRarityAndColor);
-  //return Math.random() < 1 / 9 ? getBoosterV1(cardsByRarityAndColor) : getBoosterV2(cardsByRarityAndColor);
+  return set_id < 50 ? getBoosterV2(cardsByRarityAndColor) : getBoosterV3(cardsByRarityAndColor);
 }
 
 function doKarapetPick(booster) {

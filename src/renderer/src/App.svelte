@@ -79,7 +79,7 @@
         </button>
       </li>
       <li style="margin-left: -15px; margin-right: 20px;">
-        <button class="outline driver-stats" on:click={toggleStats} disabled={$router.path === '/app/draft' || $router.path === '/app/table' || ($router.path === '/app/deal' && $currentDeck.deck_id === null )}>
+        <button class="outline driver-stats" on:click={toggleStats} disabled={$router.path === '/app/table' || ($router.path === '/app/deal' && $currentDeck.deck_id === null )}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="fill: #e8dff2;"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.5 18.5V4H4V20H20V18.5H5.5Z"/><path d="M10.5 17V8.00131H12V17H10.5Z"/><path d="M7 17V12H8.5V17H7Z"/><path d="M17.5 17V10H19V17H17.5Z"/><path d="M14 17V5H15.5V17H14Z"/></svg>
         </button>
       </li>

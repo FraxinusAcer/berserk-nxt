@@ -30,6 +30,7 @@ const config = {
   'ctrl+o': 'action:load',
   'ctrl+z': 'action:undo',
   'ctrl+v': 'action:paste',
+  'ctrl+h': 'action:help',
 
   arrowright: 'action:next',
   arrowleft: 'action:prev'

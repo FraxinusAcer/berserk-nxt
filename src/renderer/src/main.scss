@@ -1,5 +1,6 @@
 @use '@picocss/pico/scss/pico.scss';
 @use 'driver.js/dist/driver.css';
+@use 'charts.css/dist/charts.css';
 
 /*
 $color-darkest: #0E1118;
@@ -181,6 +182,18 @@ main > aside.right .decklist {
   overflow-x: hidden;
   margin: -0.6em 0 0.8em;
   background-color: #2A3140;
+}
+
+main > aside.right .hint,
+main > aside.right .hint:focus,
+main > aside.right .hint:active{
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  position: absolute;
+  right: 2.5rem;
+  margin-top: -35px;
+  cursor: hand;
 }
 
 main > aside.right .decklist .card_line {
@@ -423,6 +436,7 @@ main .deck_stats h4 {
 }
 
 .card-grid .card__rotator .deck-colors .color,
+.deck-charts-layout .color,
 main .deck_stats .color{
   display: inline-block;
   margin-left: 2px;
@@ -437,11 +451,11 @@ main .content .deck_stats .color {
   background-size: 36px 36px;
 }
 
-.card-grid .card__rotator .deck-colors .color.color-2, main .deck_stats .color.color-2{ background-image: url(./img/ico/color-2.png); }
-.card-grid .card__rotator .deck-colors .color.color-4, main .deck_stats .color.color-4{ background-image: url(./img/ico/color-4.png); }
-.card-grid .card__rotator .deck-colors .color.color-8, main .deck_stats .color.color-8{ background-image: url(./img/ico/color-8.png); }
-.card-grid .card__rotator .deck-colors .color.color-16, main .deck_stats .color.color-16{ background-image: url(./img/ico/color-16.png); }
-.card-grid .card__rotator .deck-colors .color.color-32, main .deck_stats .color.color-32{ background-image: url(./img/ico/color-32.png); }
+.card-grid .card__rotator .deck-colors .color.color-2, main .deck_stats .color.color-2, .deck-charts-layout .color.color-2 { background-image: url(./img/ico/color-2.png); }
+.card-grid .card__rotator .deck-colors .color.color-4, main .deck_stats .color.color-4, .deck-charts-layout .color.color-4 { background-image: url(./img/ico/color-4.png); }
+.card-grid .card__rotator .deck-colors .color.color-8, main .deck_stats .color.color-8, .deck-charts-layout .color.color-8 { background-image: url(./img/ico/color-8.png); }
+.card-grid .card__rotator .deck-colors .color.color-16, main .deck_stats .color.color-16, .deck-charts-layout .color.color-16 { background-image: url(./img/ico/color-16.png); }
+.card-grid .card__rotator .deck-colors .color.color-32, main .deck_stats .color.color-32, .deck-charts-layout .color.color-32 { background-image: url(./img/ico/color-32.png); }
 
 .card-grid .card__rotator .deck-colors .color + .color,
 main .deck_stats .color + .color{
@@ -604,6 +618,10 @@ main > aside.stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 7%;
+}
+
+main > aside.stats.no_columns {
+  display: block;
 }
 
 main > aside.stats.has_left {
@@ -1699,5 +1717,73 @@ section.card-grid h3{
   }
   to {
     background-position-y: 0;
+  }
+}
+
+.deck-charts-layout {
+  display: grid;
+  grid-template-columns: 8fr 6fr;
+  gap: 0 4rem;
+  width: 100%;
+  justify-content: space-between;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+}
+
+.charts-css td {
+  border-radius: 0 0 10px 10px;
+}
+
+.deck-charts-layout .col-main {
+  width: 100%;
+  justify-self: start;
+}
+
+.deck-charts-layout .col-center {
+  width: 100%;
+  justify-self: center;
+}
+
+.deck-charts-layout .col-side {
+  width: 100%;
+  justify-self: end;
+  align: right;
+}
+
+.deck-charts-layout .col-side > * {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.deck-charts-layout .bg-1 { --color: rgba(212 185 141 / 75%); }
+.deck-charts-layout .bg-2 { --color: rgba(162 183 196 / 75%); }
+.deck-charts-layout .bg-4 { --color: rgba(137 126 107 / 75%); }
+.deck-charts-layout .bg-8 { --color: rgba(77 89 83 / 75%); }
+.deck-charts-layout .bg-16 { --color: rgba(113 111 126 / 75%); }
+.deck-charts-layout .bg-32 { --color: rgba(113 88 76 / 75%); }
+
+/* Адаптив под <800px: перенос */
+@media (max-width: 800px) {
+  .deck-charts-layout {
+    grid-template-columns: 100%;
+    grid-template-areas:
+      "main"
+      "center"
+      "side";
+    row-gap: 20px;
+  }
+
+  .deck-charts-layout .col-main {
+    grid-area: main;
+    justify-self: center;
+  }
+
+  .deck-charts-layout .col-center {
+    grid-area: center;
+  }
+
+  .deck-charts-layout .col-side {
+    grid-area: side;
+    justify-self: center;
   }
 }

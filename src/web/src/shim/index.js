@@ -4,9 +4,18 @@ import { default_settings } from '../../../renderer/src/stores/defaults.js';
 import { newCollection, saveCollection, loadCollection, exportDeck, importDeck, exportDeckTTS, resetSelected, exportDraft, importDraft } from './files.js';
 
 import cardConst from '../../../../resources/const.json';
-import cardsStore from '../../../../resources/data.json';
+import _cardsStore from '../../../../resources/data.json';
 
 const resourcesPath = "/assets";
+
+export const cardsStore = _cardsStore.flatMap((card) => {
+  const ret = [{...card, alt: "", altto: null}]
+  for (const alt of card["alts"]) {
+    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, ban: card["ban"] ? card["ban"][alt] : false })
+  }
+  if(card["ban"]) ret[0]["ban"] = card["ban"][""]
+  return ret
+})
 
 export const card_data = cardsStore;
 
@@ -264,6 +273,10 @@ window.electron.ipcRenderer.on('load-draft', async () => {
   importDraft((result) => {
     window.electron.ipcRenderer.send('start-draft', null, result)
   })
+})
+
+window.electron.ipcRenderer.on('get-isweb', () => {
+  return true
 })
 
 window.electron.ipcRenderer.on('get-version', () => {
