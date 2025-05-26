@@ -52,6 +52,8 @@
   let visible_deck = []
   $: visible_deck = ($draft.look_at === null || $draft.look_at === undefined || !$draft.their_cards || !$draft.their_cards[$draft.look_at] || $draft.variant !== 'draft') ? $draft.own_cards.filter((x) => x) : $draft.their_cards[$draft.look_at].filter((x) => x)
 
+  const hasPredict = window.electron.ipcRenderer.sendSync('get-haspredictor')
+
   onMount(() => {
     if ($draft.step > 0) {
       if(byId([...$draft.own_cards, ...$draft.side]).filter((x) => !x).length) {
@@ -250,9 +252,12 @@
       const booster = [...$draft.boosters[0]]
       toast.pop(0)
       let message = []
-      if($settings['other_options']?.ai){
-        const tugodum = await doAIPick($draft.own_cards, byId(booster))
-        message.push(`Тугодум AI: <b>${byId(booster[tugodum])['name']}</b>`)
+      if(hasPredict){
+        const res = await window.electron.ipcRenderer.invoke('predict-pick', $draft.own_cards.filter((x) => x), booster)
+        const variants = Object.entries(res.predictions).sort(([,a],[,b]) => b - a).slice(0, 3)
+          .map(([opt, perc]) => `<b>${byId(opt)['name']}</b> <sup style="font-size: 70%">${Math.round(perc*100)}%</sup>`)
+          .join(', ');
+        message.push(`AI: ${variants}`)
       }
       message.push(`Статистика MotD: <b>${byId(booster[doPick(byId(booster), 'motd2')])['name']}</b>`)
       message.push(`Модель Карапета: <b>${byId(booster[doPick(byId(booster), 'karapet')])['name']}</b>`)
@@ -289,7 +294,8 @@
       draft_id: $draft.draft_id,
       context: own_cards,
       options: booster,
-      choice: picked_card
+      choice: picked_card,
+      user_uuid: $draft.user_uuid
     })
 
     await Promise.all(
@@ -297,7 +303,7 @@
         const i = idx + 1;
         return (async () => {
           let pick_index = ($draft.method === 'ai')
-              ? await doAIPick(their_cards[i - 1], byId(boosters[i]), 500)
+              ? await doAIPick(their_cards[i - 1], byId(boosters[i]))
               : doPick(byId(boosters[i]), $draft.method, $draft.user_method)
           const [pick_card] = boosters[i].splice(pick_index, 1)
           their_cards[i - 1].push(pick_card)
@@ -495,7 +501,7 @@ function getDeckName(){
                   style="width: 13em"
                 />
                 <select bind:value={$draft.method} class="driver-tournir-model">
-                  {#if $settings['other_options']?.ai}<option value="ai">Тугодум AI (бета)</option>{/if}
+                  {#if $settings['other_options']?.ai}<option value="ai">Кровавый оракул AI (альфа)</option>{/if}
                   <option value="motd">Статистика MotD.ru (хаотичный)</option>
                   <option value="motd2">Статистика MotD.ru (фиксированный)</option>
                   <option value="karapet">Модель Карапета</option>

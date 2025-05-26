@@ -83,6 +83,7 @@ const getModifiers = (event, action) => {
 
 function dispatch(event, eventType, node) {
   let type = config[getModifiers(event, eventType)]
+  console.log("Event:", getModifiers(event, eventType), `${node.nodeName}.${[...node.classList].join(".")}`, ' -> ', type)
   if (type) {
     node.dispatchEvent(new CustomEvent(type, { detail: { event, node } }))
     return false

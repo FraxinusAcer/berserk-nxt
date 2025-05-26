@@ -1,6 +1,6 @@
 {
   "name": "bersency-next",
-  "version": "5.0.3",
+  "version": "5.0.9",
   "description": "ККИ Берсерк Nxt",
   "main": "./out/main/index.js",
   "author": "Игорь «SkAZi» Потапов",
@@ -13,7 +13,7 @@
     "typecheck_full": "npm run typecheck:node && npm run svelte-check",
     "typecheck": "npm run typecheck:node && npm run svelte-check",
     "start": "electron-vite preview",
-    "dev": "cp ai/dist/server.mac.arm64 resources/server && cp ai/lib/mac-arm64/* resources/ && electron-vite dev && rm resources/server resources/*.dylib",
+    "dev": "electron-vite dev",
     "web:dev": "vite dev --config vite.config.web.mjs",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
@@ -28,7 +28,7 @@
     "build:winlin": "npm run build && electron-builder --linux --win --x64",
     "build:all": "npm run build:winlin && npm run build:mac",
     "publish": "rsync -P dist/berserk-nxt-lin-?.?.?-x86_64.AppImage dist/berserk-nxt-win-?.?.?-x64.exe dist/berserk-nxt-mac-?.?.?-arm64.dmg dist/berserk-nxt-mac-?.?.?-x64.dmg berserk:/var/www/berserk-nxt.ru/html/release/ && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
-    "publish:clean": "ssh berserk 'ls /var/www/updates.berserk-nxt.ru/ > /tmp/old_files.txt' && rsync -P dist/*.* berserk:/var/www/updates.berserk-nxt.ru/ && ssh berserk 'cd /var/www/updates.berserk-nxt.ru/ && xargs -r -a /tmp/old_files.txt rm -f' && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
+    "publish:clean": "ssh berserk 'ls /var/www/updates.berserk-nxt.ru/ | grep -v release | grep -v \"\\.ya?ml$\" > /tmp/old_files.txt' && rsync -P dist/*.* berserk:/var/www/updates.berserk-nxt.ru/ && ssh berserk 'cd /var/www/updates.berserk-nxt.ru/ && xargs -r -a /tmp/old_files.txt rm -f' && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
     "--publish": "rsync -Pavz --delete --exclude-from='.rsyncignore' ./dist/* berserk:/var/www/updates.berserk-nxt.ru/"
   },
   "dependencies": {

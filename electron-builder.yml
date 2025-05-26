@@ -23,9 +23,7 @@ asarUnpack:
 extraResources:
   - from: "src/renderer/cards"
     to: "app.asar.unpacked/resources/cards"
-  - from: "ai/dist/server.${os}.${arch}"
-    to: "app.asar.unpacked/resources/server"
-afterPack: "after-pack.js"
+#afterPack: "after-pack.js"
 win:
   executableName: berserk-nxt
   icon: ./build/icon.ico
@@ -53,7 +51,7 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   identity: "Igor Potapov (2AC4L7R5YG)"
-  notarize: true
+  notarize: false #true
   artifactName: berserk-nxt-mac-${version}-${arch}.${ext}
   target: ['dmg', 'zip']
 dmg:

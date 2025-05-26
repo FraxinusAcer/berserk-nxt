@@ -7,16 +7,16 @@ import icon from '../../resources/icon.png?asset'
 import { default_settings } from '../renderer/src/stores/defaults.js'
 import { readCollection, writeCollection, readDeck, writeTTS, readTTS, readCompact } from '../renderer/src/utils/formats.js'
 import { installAddon, deinstallAddon } from './updater.js'
-import { DeckRecommender } from './predictor.js'
+import { DeckRecommender, DraftRecommender } from './predictors.js'
 import fs from 'fs-extra'
 import axios from 'axios'
-
-const ENABLE_AI = true
 
 const resources_path = is.dev ? join(__dirname, '../../resources') : join(process.resourcesPath, 'app.asar.unpacked', 'resources')
 let card_data = JSON.parse(fs.readFileSync(join(resources_path, 'data.json'), 'utf8'))
 const card_const = JSON.parse(fs.readFileSync(join(resources_path, 'const.json'), 'utf8'))
-const predictor = new DeckRecommender(card_data)
+const feature_names = JSON.parse(fs.readFileSync(join(resources_path, 'features.json'), 'utf8'))
+const deck_predictor = new DeckRecommender(card_data),
+      draft_predictor = new DraftRecommender(card_data, feature_names)
 
 const addon_names : string[] = []
 fs.readdirSync(resources_path).filter(file => file.startsWith('addon') && file.endsWith('.json')).forEach(addon_name => {
@@ -95,6 +95,9 @@ const settings_store = new Store({
       const boosters = store.get("settings.draft_options.boosters_set");
       if(boosters.length == 4)
         store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
+    },
+    '5.0.9': (store) => {
+      if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
     },
   }
 })
@@ -193,23 +196,6 @@ const watchers = {
     }),
     'updating': false
   },
-}
-
-let child
-if (stores['settings'].get('settings.other_options.ai')) {
-  let executable = join(resources_path, 'server')
-  if (process.platform === 'win32') executable = join(resources_path, 'server.exe')
-  if (executable && fs.existsSync(executable)) {
-    const { spawn } = require('child_process')
-    try {
-      child = spawn(executable, [], { detached: true, cwd: resources_path })
-      child.stdout.on('data', (_data) => {  })
-      child.stderr.on('data', (data) => { console.log(`Tugodum AI> ${data}`) })
-      child.unref()
-    } catch (e) {
-      console.log('Error starting AI', e)
-    }
-  }
 }
 
 let mainWindow;
@@ -360,12 +346,35 @@ app.whenReady().then(async () => {
     event.returnValue = false
   })
 
+  ipcMain.on('get-haspredictor', (event) => {
+    event.returnValue = !!deck_predictor.session
+  })
+
   ipcMain.handle('predict-card', async (_event, deck) => {
-    return await predictor.predict(deck)
+    try {
+      return await deck_predictor.predict(deck)
+    } catch (e) {
+      console.log("Error start deck_predictor", e);
+      return null
+    }
+  })
+
+  ipcMain.handle('predict-pick', async (_event, deck, choices) => {
+    try {
+      return await draft_predictor.predict(deck, choices)
+    } catch (e) {
+      console.log("Error start deck_predictor", e);
+      return null
+    }
   })
 
   createWindow()
-  await predictor.init(join(resources_path, 'deck_predictor.onnx'))
+  try {
+    await deck_predictor.init(join(resources_path, 'deck_predictor.onnx'))
+    await draft_predictor.init(join(resources_path, 'draft_predictor.onnx'))
+  } catch (e) {
+    console.log("Error start predictors", e);
+  }
 
   try{
     autoUpdater.setFeedURL({provider: 'generic', url: 'http://updates.berserk-nxt.ru/release/'});
@@ -391,27 +400,17 @@ app.on('window-all-closed', () => {
 })
 
 app.on('quit', () => {
-  if(child) child.kill()
   Object.keys(watchers).forEach(key => watchers[key]['watchers'].close())
 })
 
 let submenuTemplate : MenuItemConstructorOptions[] = [
   { label: 'Перезагрузить приложение', role: 'reload' },
+  { label: 'Открыть DevTools', role: 'toggleDevTools' },
+  { type: 'separator' },
   { label: 'Указать путь к настройкам', click: selectFolder },
   { label: 'Посмотреть резервные копии', click: () => { shell.openPath(settings_path || dirname(settings_store.path))} },
   { label: 'Сбросить настройки', click: resetSettings },
 ]
-
-if (ENABLE_AI) {
-  submenuTemplate.push({ type: 'separator' })
-  submenuTemplate.push({ label: 'Запускать Тугодум AI (бета)', type: 'checkbox', checked: stores['settings'].get('settings.other_options.ai'),
-    click: () => {
-      stores['settings'].set('settings.other_options.ai', !stores['settings'].get('settings.other_options.ai'))
-      app.relaunch()
-      app.exit()
-    }
-  })
-}
 
 submenuTemplate.push({ type: 'separator' })
 submenuTemplate.push({ label: 'Добавить тестовые данные', click: patchAddon })
@@ -432,13 +431,6 @@ if (process.platform === 'darwin') {
     role: 'editMenu'
   });
 }
-menuTemplate.push({
- label: "Тестирование",
- submenu: [
-   { label: 'Обновить приложение', role: 'reload' },
-   { label: 'Открыть DevTools', role: 'toggleDevTools' },
- ]
-});
 
 //else
 //menuTemplate.push({

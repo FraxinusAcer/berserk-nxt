@@ -1,4 +1,5 @@
 import { Store } from './store.js';
+import { v4 } from 'uuid'
 
 import { default_settings } from '../../../renderer/src/stores/defaults.js';
 import { newCollection, saveCollection, loadCollection, exportDeck, importDeck, exportDeckTTS, resetSelected, exportDraft, importDraft } from './files.js';
@@ -196,7 +197,10 @@ const stores = {
        const boosters = store.get("settings.draft_options.boosters_set");
        if(boosters.length == 4)
          store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
-     }
+     },
+     '5.0.9': (store) => {
+       if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
+     },
     }
   })
 };
@@ -279,6 +283,10 @@ window.electron.ipcRenderer.on('get-isweb', () => {
   return true
 })
 
+window.electron.ipcRenderer.on('get-haspredictor', () => {
+  return false
+})
+
 window.electron.ipcRenderer.on('get-version', () => {
-  return window.__APP_VERSION__
+  return '5.0.9'
 })

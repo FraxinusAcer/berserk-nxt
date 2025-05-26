@@ -77,7 +77,8 @@ export const default_draft_options = {
   last_boosters: null,
   useCardPool: false,
   cardPoolName: "",
-  cardPool: []
+  cardPool: [],
+  user_uuid: null
 }
 
 export const default_deal_options = {

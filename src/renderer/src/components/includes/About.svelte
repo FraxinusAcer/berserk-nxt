@@ -2,6 +2,9 @@
     import { fade } from 'svelte/transition';
     import { aboutStore, toggleAbout } from '../../stores/interface.js';
     import { shortcuts } from '../../utils/shortcuts.js';
+    import { option_set } from '../../stores/user_data.js'
+
+    let draft = option_set['draft_options']
 
     let click = false
 </script>
@@ -15,7 +18,7 @@
   >
   <article id="about">
       <div>
-        <h3>ККИ Берсерк Nxt (v{ window.electron.ipcRenderer.sendSync('get-version') })</h3>
+        <h3>ККИ Берсерк Nxt (<button class="a" on:click={() => { click = true; navigator.clipboard.writeText($draft.user_uuid) }}>v{ window.electron.ipcRenderer.sendSync('get-version') }</button>)</h3>
 
         <p>ККИ Берсерк Nxt — это универсальный инструмент для работы с&nbsp;коллекцией, сбора колод, обучения и&nbsp;симуляции драфта или силеда. Приложение значительно упрощает подготовку к&nbsp;турнирам, тренировки и&nbsp;тестирование колод.</p>
         <p>Страница приложения: <a href="https://berserk-nxt.ru?ref=about" target="_black" on:click={() => { click = true }}>berserk-nxt.ru</a></p>
