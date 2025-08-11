@@ -136,7 +136,7 @@
       })
     }
     if(content.startsWith('#')) readAndAddDeck('', content)
-    if(content.startsWith('--')) readAndAddDeck('', '#' + rot13(content.replaceAll('--', '').replaceAll('\n', '').replaceAll('\r', '')))
+    if(content.startsWith('--')) readAndAddDeck('', '#' + rot13(content.replace(/--#(.|\n)*$/g, '').replaceAll('--', '').replaceAll('\n', '').replaceAll('\r', '')))
   }
 
   function readAndAddDeck(filename, result) {

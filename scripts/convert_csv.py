@@ -3,7 +3,6 @@ import json
 from bs4 import BeautifulSoup
 import requests
 import time
-import cv2
 import concurrent.futures
 import numpy as np
 import os
@@ -13,7 +12,7 @@ from nltk.stem.snowball import SnowballStemmer
 
 from nltk.tokenize import word_tokenize
 
-CURRENT_SET = 50
+CURRENT_SET = 60
 
 stop_words = set(['x', 'и', 'в', 'во', 'что', 'он', 'я', 'с', 'со', 'как', 'а', 'то', 'все', 'она', 'так', 'его', 'но', 'да', 'ты', 'к', 'у', 'же', 'вы', 'за', 'бы', 'ее', 'мне', 'было', 'вот', 'от', 'меня', 'еще', 'нет', 'о', 'из', 'ему', 'теперь', 'даже', 'ну', 'вдруг', 'ли', 'если', 'уже', 'или', 'ни', 'быть', 'был', 'него', 'до', 'вас', 'нибудь', 'опять', 'уж', 'вам', 'ведь', 'там', 'потом', 'себя', 'ничего', 'ей', 'они', 'тут', 'где', 'есть', 'надо', 'ней', 'для', 'мы', 'тебя', 'их', 'чем', 'была', 'сам', 'чтоб', 'без', 'будто', 'чего', 'раз', 'тоже', 'себе', 'под', 'ж', 'тогда', 'кто', 'этот', 'того', 'потому', 'этого', 'какой', 'совсем', 'ним', 'здесь', 'этом', 'один', 'почти', 'мой', 'тем', 'чтобы', 'нее', 'сейчас', 'были', 'куда', 'зачем', 'всех', 'никогда', 'можно', 'наконец', 'два', 'об', 'другой', 'хоть', 'после', 'над', 'больше', 'тот', 'эти', 'нас', 'про', 'них', 'какая', 'много', 'разве', 'эту', 'моя', 'впрочем', 'хорошо', 'свою', 'этой', 'иногда', 'лучше', 'чуть', 'том', 'такой', 'им', 'более', 'конечно', 'всю'])
 
@@ -59,7 +58,8 @@ PROPS = {
     "frm": "Строй",
     "tlp": "Телепортация",
     "nec": "Трупоедство",
-    "icr": "Инкарнация"
+    "icr": "Инкарнация",
+    "reb": "Отпор",
 }
 
 def process_tokens(row, icons):
@@ -87,6 +87,8 @@ def process_icons(row):
     for icn, name in PROPS.items():
         if name.lower() in row['text'].lower():
             icons[icn] = 0
+    if '{wolf}' in row['text'].lower() or '{human}' in row['text'].lower():
+        icons['wohu'] = 0
     return icons
 
 with open('alts.json', 'r') as f:
@@ -113,20 +115,18 @@ for index, row in df.iterrows():
         "elite": bool(int(row['elite']) if pd.notna(row['elite']) else 0),
         "uniq": bool(int(row['uniq']) if pd.notna(row['uniq']) else 0),
         "color": int(row['color']),
-        "class": [s.strip() for s in str(row['class']).split('.')] if pd.notna(row['class']) else [""],
+        "class": [s.strip() for s in str(row['class']).split('.') if s.strip()] if pd.notna(row['class']) else [""],
         "type": int(row['type']) - 1,
         "life": int(row['life']) if pd.notna(row['life']) else None,
         "move": int(row['move']) if pd.notna(row['move']) else None,
         "hit": [int(x) for x in row['hit'].split('-')] if pd.notna(row['hit']) and '-' in row['hit'] else None,
         "horde": bool(int(row['horde']) if pd.notna(row['horde']) else 0),
         "icons": icons,
-        "art": row['artist'],
+        "art": row['artist'] if pd.notna(row['artist']) else "",
         "tokens": process_tokens(row, icons),
         "text": row['text'] if pd.notna(row['text']) else "",
         "prints": {},
         "alts": [], #["alt"] if fullid in alts_data["alt"] else [],
-        "alt": "",
-        "altto": None
     }
     print(', ' + json.dumps(card, ensure_ascii=False, separators=(',', ':')))
     #print(f"cp {card["number"]}.jpg 1")

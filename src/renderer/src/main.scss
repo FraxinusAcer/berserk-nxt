@@ -2,6 +2,8 @@
 @use 'driver.js/dist/driver.css';
 @use 'charts.css/dist/charts.css';
 
+@use 'sass:math';
+
 /*
 $color-darkest: #0E1118;
 $color-darker: #202632;
@@ -1133,7 +1135,8 @@ section.card-grid h3{
 .card-grid .card.alt-f .card__rotator::after,
 .card-grid .card.alt-fpf .card__rotator::after,
 .card-grid .card.alt-altfpf .card__rotator::after,
-.card-grid .card.alt-altf .card__rotator::after{
+.card-grid .card.alt-altf .card__rotator::after,
+.card-grid .card.alt-alt_2f .card__rotator::after{
   content: "";
   height: 100%;
   border-radius: var(--card-radius);
@@ -1184,6 +1187,7 @@ section.card-grid h3{
 .card-grid .card.bw.alt-fpf .card__rotator::after,
 .card-grid .card.bw.alt-altfpf .card__rotator::after,
 .card-grid .card.bw.alt-altf .card__rotator::after,
+.card-grid .card.bw.alt-alt_2f .card__rotator::after,
 .card-grid .card.bw.alt-of .card__rotator div::before {
   opacity: 0.3;
 }
@@ -1268,6 +1272,7 @@ section.card-grid h3{
   dialog.main-popup .card.alt-f .card__rotator::after,
   dialog.main-popup .card.alt-fpf .card__rotator::after,
   dialog.main-popup .card.alt-altf .card__rotator::after,
+  dialog.main-popup .card.alt-alt_2f .card__rotator::after,
   dialog.main-popup .card.alt-altfpf .card__rotator::after,
   dialog.main-popup .card.alt-of .card__rotator::after {
       content: "";
@@ -1434,6 +1439,19 @@ section.card-grid h3{
     margin: .6em 0 .2em;
     padding: .6em .8em;
     width: 100%;
+  }
+
+  button.a.close-popup {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 36px;
+    color: white;
+    transition: color 0.3s ease;
+    z-index: 10000;
   }
 
 @media screen and (max-width: 900px) {
@@ -1718,6 +1736,39 @@ section.card-grid h3{
   to {
     background-position-y: 0;
   }
+}
+
+
+.ag-particle {
+  z-index: 1002;
+	position: absolute;
+	animation: shoot 3s ease-out infinite;
+	animation-name: shoot, fade;
+	border-radius: 50%;
+	left: 0;
+	top: 20vh;
+	margin-left: 15%;
+
+	@for $i from 0 to 100 {
+		$t: (3 + .01 * math.random(100)) * 1s;
+
+		&:nth-child(#{ $i + 1 }) {
+			$d: math.random(30) + 40 + px;
+			width: $d; height: $d;
+			transform: translate(math.random(100)*1vw, math.random(100)*1vh);
+			background: hsl(math.random(10) + 130deg, 60%, 40% + math.random(40));
+			animation-duration: $t;
+			animation-delay: -.01 * math.random(100) * $t;
+		}
+	}
+}
+
+@keyframes shoot {
+	0% { transform: translate(50vw, 0vh); }
+}
+
+@keyframes fade {
+	to { opacity: 0 }
 }
 
 .deck-charts-layout {

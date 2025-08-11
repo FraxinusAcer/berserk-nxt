@@ -2,21 +2,21 @@ import html2canvas from 'html2canvas';
 import QRCode from 'qrcode';
 import { writeCompact } from './formats.js'
 
-export function takeScreenshot(selector, name, data = null, suffix = "", clipboard = false) {
+export function takeScreenshot(selector, name, data = null, suffix = "", clipboard = false, size = 1) {
   const node = document.querySelector(selector).cloneNode(true);
   const len = Array.from(node.childNodes).length
   node.style.background = '#2a3140';
   node.style.padding = '16px 16px 0'
   node.style.marginTop = '1000px'
-  node.style.width = len < 20 ? '800px' : (len <= 30 ? '900px' : '1140px')
-  node.style.setProperty('--card-min-size', '120px')
+  node.style.width = len < 20 ? `${800 * size}px` : (len <= 30 ? `${size * 900}px` : `${size * 1140}px`)
+  node.style.setProperty('--card-min-size', `${size * 160}px`)
   node.classList.add('print')
   const header = document.createElement('h3');
   header.innerText = name
   node.prepend(header)
   let qrText = ""
   if(data) qrText = writeCompact(data.map(([card, count]) => [count, card.set_id, card.number]))
-  QRCode.toCanvas(qrText, { version: 6, width: 108, margin: 0, color: {dark: '#CFD5E2FF', light: '#00000000'} }, (err, qrCanvas) => {
+  QRCode.toCanvas(qrText, { version: 6, width: 108 * size, margin: 0, color: {dark: '#CFD5E2FF', light: '#00000000'} }, (err, qrCanvas) => {
     if(!err && qrText){
       qrCanvas.style.marginTop = '10px'
       qrCanvas.style.gridColumn = '1/-1';

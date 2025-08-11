@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { default_collection_options, default_deckbuilding_options, default_draft_options, default_deal_options} from './defaults.js';
+import { default_collection_options, default_deckbuilding_options, default_draft_options, default_deal_options, default_other_options} from './defaults.js';
 
 export const settings_loaded = writable({});
 
@@ -8,7 +8,7 @@ export const option_set = {
   deckbuilding_options: writable(default_deckbuilding_options),
   draft_options: writable(default_draft_options),
   deal_options: writable(default_deal_options),
-  other_options: writable({}),
+  other_options: writable(default_other_options),
 };
 
 function createElectronStore(key, loaded_keys) {

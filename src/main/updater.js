@@ -104,6 +104,10 @@ export function installAddon(zipPath) {
 }
 
 export function deinstallAddon(name) {
+  const data_addon = JSON.parse(fs.readFileSync(join(resources_path, name), 'utf8'))
   fs.removeSync(join(resources_path, name))
+  Object.keys(data_addon['const']['sets'] || {}).forEach((set_name) => {
+    fs.rmdirSync(join(resources_path, 'cards', set_name), { recursive: true })
+  })
   return true
 }

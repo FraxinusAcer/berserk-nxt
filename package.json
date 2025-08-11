@@ -1,6 +1,6 @@
 {
   "name": "bersency-next",
-  "version": "5.0.9",
+  "version": "6.2.0",
   "description": "ККИ Берсерк Nxt",
   "main": "./out/main/index.js",
   "author": "Игорь «SkAZi» Потапов",
@@ -27,8 +27,8 @@
     "build:lin": "npm run build && electron-builder --linux --x64",
     "build:winlin": "npm run build && electron-builder --linux --win --x64",
     "build:all": "npm run build:winlin && npm run build:mac",
-    "publish": "rsync -P dist/berserk-nxt-lin-?.?.?-x86_64.AppImage dist/berserk-nxt-win-?.?.?-x64.exe dist/berserk-nxt-mac-?.?.?-arm64.dmg dist/berserk-nxt-mac-?.?.?-x64.dmg berserk:/var/www/berserk-nxt.ru/html/release/ && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
-    "publish:clean": "ssh berserk 'ls /var/www/updates.berserk-nxt.ru/ | grep -v release | grep -v \"\\.ya?ml$\" > /tmp/old_files.txt' && rsync -P dist/*.* berserk:/var/www/updates.berserk-nxt.ru/ && ssh berserk 'cd /var/www/updates.berserk-nxt.ru/ && xargs -r -a /tmp/old_files.txt rm -f' && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
+    "publish": "rsync -P dist/berserk-nxt-lin-?.?.?-x86_64.AppImage dist/berserk-nxt-win-?.?.?-x64.exe dist/berserk-nxt-mac-?.?.?-arm64.dmg dist/berserk-nxt-mac-?.?.?-x64.dmg berserk:/var/www/updates.berserk-nxt.ru/ && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
+    "publish:clean": "ssh berserk 'ls /var/www/updates.berserk-nxt.ru/ | grep -v release | grep -v \"\\.ya?ml$\" > /tmp/old_files.txt' && rsync -P dist/berserk-nxt-lin-?.?.?-x86_64.AppImage dist/berserk-nxt-win-?.?.?-x64.exe dist/berserk-nxt-mac-?.?.?-arm64.dmg dist/berserk-nxt-mac-?.?.?-x64.dmg berserk:/var/www/updates.berserk-nxt.ru/ && ssh berserk 'cd /var/www/updates.berserk-nxt.ru/ && xargs -r -a /tmp/old_files.txt rm -f' && rsync -P ./landing/* berserk:/var/www/berserk-nxt.ru/html",
     "--publish": "rsync -Pavz --delete --exclude-from='.rsyncignore' ./dist/* berserk:/var/www/updates.berserk-nxt.ru/"
   },
   "dependencies": {

@@ -90,6 +90,16 @@ export function toggleAbout() {
   })
 }
 
+export const settingsStore = writable({
+  isOpen: false,
+})
+
+export function toggleSettings() {
+  settingsStore.update(($settingsStore) => {
+    return { isOpen: !$settingsStore.isOpen }
+  })
+}
+
 export const printDeckListStore = writable({
   isOpen: false
 })

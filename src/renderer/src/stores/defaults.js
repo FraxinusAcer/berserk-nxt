@@ -60,6 +60,9 @@ export const default_deckbuilding_options = {...default_collection_options,
 export const default_draft_options = {
   name: "",
   step: 0,
+  draft_key: "",
+  last_draft_key: [],
+  new_draft_key: "",
   players: 8,
   type: null,
   key: "",
@@ -75,6 +78,7 @@ export const default_draft_options = {
   look_at: null,
   draft_id: null,
   last_boosters: null,
+  last_full_draft: null,
   useCardPool: false,
   cardPoolName: "",
   cardPool: [],
@@ -93,10 +97,17 @@ export const default_deal_options = {
   searchQuery: ""
 }
 
+export const default_other_options = {
+  screenshot_size: 1,
+  screenshot_quality: 98,
+  collection_all_filters: false
+}
+
 export const default_settings = {
   settings_path: null,
   collection_options: default_collection_options,
   deckbuilding_options: default_deckbuilding_options,
   draft_options: default_draft_options,
-  deal_options: default_deal_options
+  deal_options: default_deal_options,
+  other_options: default_other_options
 }

@@ -122,11 +122,16 @@
   {#if effect === 'sparcles'}
     <div class="ag-sparks"></div>
   {/if}
+  {#if effect === 'particles'}
+    {#each Array.from({length: 100}, (_, i) => i) as _i }
+      <div class="ag-particle"></div>
+    {/each}
+  {/if}
   {#if card_list.length}
   <button class="a left" on:click|preventDefault|stopPropagation={prevCard} style="color: #3d475c; position: absolute; left: .5em; text-decoration: none; font-size: 400%">&laquo;</button>
   <button class="a right" on:click|preventDefault|stopPropagation={nextCard} style="color: #3d475c; position: absolute; right: .5em; text-decoration: none; font-size: 400%">&raquo;</button>
   {/if}
-  <article class:noside={type !== 'collection'}>
+  <article class:noside={type !== 'collection' || effect !== null}>
     {#if card}
     <div class="card-wrapper">
       <div class="card alt-{card.alt}" class:featured={$featured[""].includes(card?.id)}>
@@ -146,7 +151,7 @@
           </span>
       </div>
     </div>
-    {#if type === 'collection' }
+    {#if type === 'collection' && effect === null }
     <aside>
       <section role="none" on:click|stopPropagation={() => {}}>
         <h3>{card.name}</h3>

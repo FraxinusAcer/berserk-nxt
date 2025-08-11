@@ -2,7 +2,7 @@ try {
     var ort = require('onnxruntime-node');
 } catch (err) { }
 
-const EXCEPT_SETS = new Set([10, 22, 51])
+const EXCEPT_SETS = new Set([10, 22, 51, 60])
 
 export class DeckRecommender {
   constructor(card_data) {
@@ -39,7 +39,7 @@ export class DeckRecommender {
   }
 
   // Функция предсказания полной колоды, исходя из начального набора карт (и отрицательных)
-  async predict(initial_ids, sampling_top_k = 5) {
+  async predict(initial_ids, sampling_top_k = 5, pool = null) {
     let indices = []
     for (const cid of initial_ids) {
       if (!(cid in this.id_to_index)) {
@@ -66,7 +66,7 @@ export class DeckRecommender {
       if (idx >= this.vocab_size) continue
       const cid = this.index_to_id[idx]
       const currCount = initial_ids.filter((id) => id == cid).length
-      if (currCount < this.get_max_copies(cid))
+      if (currCount < this.get_max_copies(cid) && (!pool || pool.includes(cid)))
         candidates.push({ cid, score: obj.score });
       if (candidates.length >= sampling_top_k) break;
     }

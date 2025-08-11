@@ -10,9 +10,10 @@ import _cardsStore from '../../../../resources/data.json';
 const resourcesPath = "/assets";
 
 export const cardsStore = _cardsStore.flatMap((card) => {
+  const promos = card["promos"] || []
   const ret = [{...card, alt: "", altto: null}]
   for (const alt of card["alts"]) {
-    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, ban: card["ban"] ? card["ban"][alt] : false })
+    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, promo: promos.includes(alt), ban: card["ban"] ? card["ban"][alt] : false })
   }
   if(card["ban"]) ret[0]["ban"] = card["ban"][""]
   return ret
@@ -201,6 +202,22 @@ const stores = {
      '5.0.9': (store) => {
        if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
      },
+     '5.2.0': (store) => {
+       if(!store.has("settings.draft_options.draft_key")) store.set("settings.draft_options.draft_key", "")
+       if(!store.has("settings.draft_options.last_draft_key")) store.set("settings.draft_options.last_draft_key", "")
+     },
+     '5.2.2': (store) => {
+       if(!store.has("settings.draft_options.last_full_draft")) store.set("settings.draft_options.last_full_draft", null)
+     },
+     '5.2.3': (store) => {
+       store.set("settings.draft_options.new_draft_key", "")
+       store.set("settings.draft_options.last_draft_key", [])
+     },
+     '6.2.0': (store) => {
+       store.set("settings.other_options.screenshot_size", 1)
+       store.set("settings.other_options.screenshot_quality", 98)
+       store.set("settings.other_options.collection_all_filters", false)
+     },
     }
   })
 };
@@ -230,8 +247,8 @@ window.electron.ipcRenderer.on('set-data', (key, value) => {
 });
 
 
-window.electron.ipcRenderer.on('save-deck', (deck, name, type, deck_type) => {
-  if(type === 'tts') exportDeckTTS(deck, name, deck_type)
+window.electron.ipcRenderer.on('save-deck', (deck, name, type, deck_type, full_deck, sign_key) => {
+  if(type === 'tts') exportDeckTTS(deck, name, deck_type, full_deck, sign_key)
   else exportDeck(deck, name, type)
 });
 
@@ -288,5 +305,5 @@ window.electron.ipcRenderer.on('get-haspredictor', () => {
 })
 
 window.electron.ipcRenderer.on('get-version', () => {
-  return '5.0.9'
+  return '6.2.0'
 })

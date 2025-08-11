@@ -116,7 +116,7 @@ export function readTTS(card_data, input) {
   return ["", deck]
 }
 
-export function writeTTS(deck, options, deck_type='Констрактед') {
+export async function writeTTS(deck, options, deck_type='Констрактед', full_deck=null, sign=null) {
   const {path, suffix, sets, rarity, color, root_base, custom_view, deck_base, card_base, creature_types} = options;
 
   function GUID() {
@@ -137,13 +137,27 @@ export function writeTTS(deck, options, deck_type='Констрактед') {
     return `${path}${card.set_id}-${1+Math.floor((card.number-1) / 69)}${release_suffix}.jpg`
   }
 
+  function hexToUint8Array(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return bytes;
+  }
+
   const ret = fastCopy(root_base);
   const deck_view = fastCopy(deck_base);
   deck_view["GUID"] = GUID()
   deck_view["Description"] = deck_type
-  if (deck_type === 'Драфт') {
-    const valid = writeCompact(deck.map((card) => [1, card.set_id, card.number]), options).slice(1).match(/.{1,32}/g).join('\n--')
-    deck_view["LuaScript"] = rot13('--' + valid)
+  if (full_deck) {
+    const valid = rot13(writeCompact(full_deck.map((card) => [1, card.set_id, card.number]), options).slice(1))
+    deck_view["LuaScript"] = '--' + valid.match(/.{1,32}/g).join('\n--')
+    if (sign) {
+      const privKey = await crypto.subtle.importKey('pkcs8', hexToUint8Array('302e020100300506032b657004220420' + sign).buffer, { name: 'Ed25519' }, true, ['sign'])
+      const signature = await crypto.subtle.sign({ name: 'Ed25519' }, privKey, new TextEncoder().encode(valid))
+      const signature_hex = [...new Uint8Array(signature)].map(b => b.toString(16).padStart(2, "0")).join("")
+      deck_view["LuaScript"] += '\n--#sign\n--' + signature_hex.match(/.{1,32}/g).join('\n--')
+    }
   }
   deck_view["DeckIDs"] = deck.map((card) => { return getId(card) })
 

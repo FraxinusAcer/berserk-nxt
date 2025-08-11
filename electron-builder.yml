@@ -36,8 +36,8 @@ nsis:
   artifactName: berserk-nxt-win-${version}-${arch}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
-  oneClick: true
-  allowToChangeInstallationDirectory: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
 mac:
@@ -53,7 +53,7 @@ mac:
   identity: "Igor Potapov (2AC4L7R5YG)"
   notarize: false #true
   artifactName: berserk-nxt-mac-${version}-${arch}.${ext}
-  target: ['dmg', 'zip']
+  target: ['dmg'] #, 'zip']
 dmg:
   artifactName: berserk-nxt-mac-${version}-${arch}.${ext}
   sign: false

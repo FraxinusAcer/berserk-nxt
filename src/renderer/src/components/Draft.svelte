@@ -32,6 +32,7 @@
     get_karapet_score,
     get_motd_order
   } from '../utils/draft.js'
+  import { Random } from '../utils/mersenne'
   import { byId, sets, groupCards, countOfType, sortCards } from '../stores/cards.js'
 
   import Card from './includes/Card.svelte'
@@ -40,8 +41,9 @@
 
   const options_name = 'draft_options'
   let draft = option_set[options_name]
+  let other_options = option_set['other_options']
 
-  let deck_name = ""
+  let deck_name = `${$draft.variant === 'draft' ? 'Драфт' : 'Силед'} от ${formatCurrentDate()}`
   let lock_click = false
   let chart_total = true
 
@@ -54,6 +56,8 @@
 
   const hasPredict = window.electron.ipcRenderer.sendSync('get-haspredictor')
 
+  let rng = new Random()
+
   onMount(() => {
     if ($draft.step > 0) {
       if(byId([...$draft.own_cards, ...$draft.side]).filter((x) => !x).length) {
@@ -61,7 +65,7 @@
       } else {
         setSecondLevelMenu(
           $draft.step === 5 ?
-            ($draft.variant === 'draft' && $draft.last_boosters ?
+            ($draft.variant === 'draft' && $draft.last_boosters && $draft.draft_key === '' ?
               { 'Переиграть' : replayDraft, 'Новый турнир': stopDraft } : {'Новый турнир': stopDraft })
             : { 'Прервать турнир': stopDraft }
         )
@@ -110,13 +114,9 @@
     })
   }
 
-  function canContinueDraft() {
-    return $draft.own_cards.length > 0 && $draft.step === 0
-  }
-
   function loadDraft() {
     let last = window.electron.ipcRenderer.sendSync('load-draft')
-    replayDraft(null, last)
+    if(last) replayDraft(null, last)
   }
 
   function replayDraft(_event, last_boosters = null) {
@@ -128,9 +128,13 @@
         setSecondLevelMenu({ 'Прервать турнир': stopDraft })
         return {
           ...draft,
+          players: draft.show_score === '3' ? 8 : boosters.length,
+          method: draft.show_score === '3' ? 'motd' : draft.method,
+          draft_key: '',
+          new_draft_key: '',
+          last_draft_key: [draft.draft_key, ...draft.last_draft_key].slice(0,10),
           draft_id: v4(),
           step: 4,
-          players: boosters.length,
           boosters,
           current_booster: 0,
           own_cards: [],
@@ -152,6 +156,17 @@
     deck_name = `${$draft.variant === 'draft' ? 'Драфт' : 'Силед'} от ${formatCurrentDate()}`
     draft.update((draft) => {
       draft.current_booster = -1
+      draft.last_draft_key = [draft.draft_key, ...draft.last_draft_key].slice(0,10)
+      if(draft.show_score === '3') {
+        if(draft.variant === 'siled') setSecondLevelMenu({ 'Начать новый': breakDraft })
+        draft.players = 8
+        draft.method = 'motd'
+        draft.draft_key = draft.new_draft_key.replaceAll('\n', '')
+        rng = new Random(fnv1a(draft.draft_key || '0'))
+      } else {
+        draft.new_draft_key = ''
+        draft.draft_key = ''
+      }
       if (draft.variant === 'draft') {
         let [boosters, current_booster, last_boosters] = generateBoosters({...draft, replay: false}, [null,null,null,null])
         return {
@@ -162,6 +177,7 @@
           current_booster,
           own_cards: [],
           side: [],
+          last_full_draft: null,
           their_cards: Array.from({ length: boosters.length-1 }, () => []),
           look_at: null,
           last_boosters,
@@ -169,7 +185,7 @@
         }
       } else {
         const boosters = draft.boosters_set.flatMap((set_id) =>
-          set_id !== '' ? getBooster(cardsStore, parseInt(set_id)) : []
+          set_id !== '' ? getBooster(cardsStore, parseInt(set_id), () => rng.nextNumber()) : []
         )
         return {
           ...draft,
@@ -179,6 +195,7 @@
           current_booster: -1,
           own_cards: [],
           side: boosters.flat(),
+          last_full_draft: boosters.flat(),
           their_cards: [],
           look_at: null,
           last_boosters: null,
@@ -190,7 +207,7 @@
   }
 
   function continueDraft() {
-    if (!canContinueDraft()) return
+    if (!can_continue_draft) return
     setSecondLevelMenu({ 'Прервать турнир': stopDraft })
     if ($draft.current_booster > -1) setup({ step: 4 })
     else setup({ step: 5 })
@@ -203,6 +220,14 @@
     awaiter.set({ awaiting: {} })
   }
 
+  function breakDraft() {
+    if(!confirm("Если не закончил и не сохранил колоду, повторить набор не получится. Уверен, что готов завершить?")) return;
+    toast.pop(0)
+    setSecondLevelMenu()
+    setup({ step: 0, draft_key: '', new_draft_key: '', last_draft_key: [$draft.draft_key, ...$draft.last_draft_key].slice(0,10), boosters: [], last_boosters: [] })
+    awaiter.set({ awaiting: {} })
+  }
+
   function generateBoosters(draft, last_boosters) {
     while (
       ++draft.current_booster < draft.boosters_set.length &&
@@ -211,7 +236,7 @@
     let boosters = []
     if (draft.current_booster >= draft.boosters_set.length || (draft.variant == 'draft' && draft.current_booster > 3)) {
       setSecondLevelMenu(
-          draft.last_boosters ? { 'Переиграть' : replayDraft, 'Новый турнир': stopDraft } : {'Новый турнир': stopDraft }
+        (draft.last_boosters && draft.draft_key === '') ? { 'Переиграть' : replayDraft, 'Новый турнир': stopDraft } : {'Новый турнир': breakDraft }
         )
       return [boosters, -1, last_boosters]
     }
@@ -224,7 +249,7 @@
         return [boosters, -1, last_boosters]
     } else {
       for (let i = 0; i < draft.players; i++)
-        boosters.push(getBooster(cardsStore, parseInt(draft.boosters_set[draft.current_booster])))
+        boosters.push(getBooster(cardsStore, parseInt(draft.boosters_set[draft.current_booster]), () => rng.nextNumber()))
       last_boosters[draft.current_booster] = JSON.parse(JSON.stringify(boosters))
     }
 
@@ -285,6 +310,7 @@
     const booster = [...boosters[0]]
     let [picked_card] = boosters[0].splice(index, 1)
     let own_cards = [...$draft.own_cards]
+    let last_full_draft = $draft.last_full_draft
     let side = [...$draft.side]
     let last_boosters = $draft.last_boosters
     let their_cards = JSON.parse(JSON.stringify($draft.their_cards))
@@ -323,6 +349,7 @@
         step = 5
         side = [...own_cards, picked_card]
         own_cards = []
+        last_full_draft = JSON.parse(JSON.stringify(side))
         awaiter.set({ awaiting: {} })
       } else {
         own_cards.push(picked_card)
@@ -333,7 +360,7 @@
     }
 
     draft.update((draft) => {
-      return { ...draft, own_cards, side, their_cards, boosters, current_booster, last_boosters, step }
+      return { ...draft, own_cards, side, their_cards, boosters, current_booster, last_boosters, last_full_draft, step }
     })
 
     doIAMagic()
@@ -448,11 +475,53 @@
       })
   }
 
-function getDeckName(){
-  return $draft.look_at === null ?
-    deck_name :
-    `${$draft.variant === 'draft' ? 'Драфт' : 'Силед'} от ${formatCurrentDate()} (бот ${$draft.look_at + 1})`
-}
+  function getDeckName(){
+    return $draft.look_at === null ?
+      deck_name :
+      `${$draft.variant === 'draft' ? 'Драфт' : 'Силед'} от ${formatCurrentDate()} (бот ${$draft.look_at + 1})`
+  }
+
+  async function createNewGame(){
+    let last_boosters = []
+    for(let j = 0; j < 4; j++) {
+      if(!$draft.boosters_set[j]) continue;
+      let boosters = []
+      for (let i = 0; i < $draft.players; i++)
+        boosters.push(getBooster(cardsStore, parseInt($draft.boosters_set[j]), () => rng.nextNumber()))
+      last_boosters.push(JSON.parse(JSON.stringify(boosters)))
+    }
+
+    await window.electron.ipcRenderer.send(
+        'save-draft',
+        null,
+        last_boosters,
+        `Драфт от ${formatCurrentDate()}`
+    )
+
+    replayDraft(null, last_boosters)
+  }
+
+  function fnv1a(str) {
+    let hash = 0x811c9dc5
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i)
+      hash = (hash * 0x01000193) >>> 0
+    }
+    return hash
+  }
+
+  let valid_draft_key = false
+  $: valid_draft_key = $draft.new_draft_key.length === 64 && /^[0-9a-fA-F]+$/.test($draft.new_draft_key) && !$draft.last_draft_key.includes($draft.new_draft_key)
+
+  let can_start_draft = false
+  $: can_start_draft = $draft.show_score !== '3' || valid_draft_key
+
+  let can_continue_draft = false
+  $: can_continue_draft = ($draft.last_boosters && $draft.last_boosters.length > 0)
+      && $draft.step === 0
+      && ($draft.show_score !== '3' || (valid_draft_key && $draft.new_draft_key === $draft.draft_key))
+
+
 </script>
 
 {#if $draft.step <= 3}
@@ -484,11 +553,24 @@ function getDeckName(){
                 <option value="1">Обучение с ботами</option>
                 <option value="">Тренировка с ботами</option>
                 <option value="2">Турнир с ботами</option>
+                <option value="3">Турнир через Шарля де Лорма</option>
                 <!-- option value="2">Он-лайн турнир</!option -->
               </select>
             </div>
           </label>
-          {#if $draft.variant == 'draft'}
+          {#if $draft.show_score === '3'}
+          <label>
+            Ключ подтверждения турнира:
+            <input type="text" {...($draft.new_draft_key === '' ? {} : { 'aria-invalid': valid_draft_key ? "false" : "true" })} bind:value={$draft.new_draft_key} style="font-size: 80%" />
+            {#if $draft.new_draft_key !== '' && !valid_draft_key}
+              <div style="margin-top: -1em; font-size: 80%; font-style: italic; color: rgb(150, 74, 80)">Ключ недействителен или уже использовался</div>
+            {/if}
+          </label>
+          <p style="font-family: Georgia, Times New Roman, serif; font-style: italic; font-size: 90%; line-height: 1.2em;">
+            Этот режим используется для проведения рейтинговых турниров через <a href="https://t.me/charles_de_lorme_bot" target="_blank">бот Шарль де Лорм</a>.
+          </p>
+          {/if}
+          {#if $draft.variant === 'draft' && $draft.show_score !== '3'}
             <label>
               Укажи число игроков, {$draft.players - 1} мест{#if $draft.players == 2}о{:else if $draft.players <= 5}а{/if}
               {#if $draft.players == 2}займёт бездушный робот{:else}займут бездушные роботы{/if}:
@@ -530,7 +612,7 @@ function getDeckName(){
               >
                 {#if index}<option value=""></option>{/if}
                 {#each Object.entries(sets) as [key, set_name]}
-                  {#if parseInt(key) % 10 == 0}
+                  {#if parseInt(key) % 10 == 0 && key !== '60'}
                     <option value={key}>{set_name}</option>
                   {/if}
                 {/each}
@@ -539,12 +621,24 @@ function getDeckName(){
           </label>
         </fieldset>
         <div class="button-container" style="display: flex; justify-content: space-between; text-align: right">
+          {#if $draft.show_score !== '3'}
           <span>
-            <button class="secondary" on:click={continueDraft} style:visibility={canContinueDraft() ? "visible" : "hidden"}
+            <button class="secondary" on:click={continueDraft} style:visibility={can_continue_draft ? "visible" : "hidden"}
                 >Продолжить прошлый</button>
           </span>
-          <span><button class="secondary" on:click={loadDraft}>Загрузить драфт</button></span>
-          <span><button on:click={beginDraft}>Начать турнир</button></span>
+          <span>
+            <button class="secondary" on:click={loadDraft}>Загрузить драфт</button>
+          </span>
+          <span><button on:click={(e) => { e.shiftKey ? createNewGame() : beginDraft() } }>Начать турнир</button></span>
+          {:else}
+            {#if can_continue_draft}
+              <span><button class="secondary" on:click={() => { breakDraft() } }>Отменить турнир</button></span>
+              <span><button on:click={() => { continueDraft() } }>Продолжить турнир</button></span>
+            {:else}
+              <span></span>
+              <span><button disabled={!can_start_draft} on:click={() => { beginDraft() } }>Начать турнир</button></span>
+            {/if}
+          {/if}
         </div>
       {:else if $draft.step === 1}
         <label>
@@ -613,7 +707,7 @@ function getDeckName(){
 {:else}
 {#if $showStats.isOpen}
     <aside class="stats" transition:slide={{ duration: 150, easing: quintOut }} class:has_left={false} class:has_right={$draft.step === 5} class:no_columns={true}>
-      {#if $draft.show_score !== '2'}
+      {#if $draft.show_score !== '2' && $draft.show_score !== '3'}
         {#key visible_deck}
           <DeckCharts deck={visible_deck} bind:chart_total />
         {/key}
@@ -740,7 +834,9 @@ function getDeckName(){
                 byId(visible_deck),
                 getDeckName(),
                 'tts',
-                'Драфт'
+                'Драфт',
+                byId($draft.last_full_draft),
+                $draft.draft_key
               )
             }}
           >
@@ -764,7 +860,7 @@ function getDeckName(){
             style="padding: 5px; height: 45px;  margin-left: 10px;"
             disabled={visible_deck.length === 0}
             on:click={(e) => {
-              takeScreenshot('#own-cards', getDeckName(), groupCards(visible_deck, 'asis'), "", e.shiftKey)
+              takeScreenshot('#own-cards', getDeckName(), groupCards(visible_deck, 'asis'), "", e.shiftKey, $other_options['screenshot_size'])
             }}
           >
             <svg width="32" height="32" viewBox="0 0 192 192" fill="none"
@@ -793,6 +889,16 @@ function getDeckName(){
           >
       </p>
       {/if}
+
+      {#if $draft.draft_key}
+      <p style="margin-top: 1em; font-family: monospace; line-height: 1.2em; color: rgb(95, 100, 108); text-shadow: 1px 1px rgb(28, 33, 44);">
+        Ключ турнира:<br>
+        {#each $draft.draft_key.match(/.{32}/g) as part}
+          {part}<br>
+        {/each}
+      </p>
+      {/if}
+
     </section>
   </aside>
 {/if}
@@ -844,7 +950,7 @@ function getDeckName(){
         <div use:sortable={{ update: deckCardDragUpdate }}>
           <Card
             showTopText={pickHint(card)}
-            card={($draft.step === 4 && $draft.show_score === '2' && $draft.boosters[0].length !== 1) ? {number: "../back", alt: ""} : card}
+            card={($draft.step === 4 && ($draft.show_score === '2' || $draft.show_score === '3') && $draft.boosters[0].length !== 1) ? {number: "../back", alt: ""} : card}
             onpreview={togglePopup}
             onprimary={() => deckCardClick(index)}
             showCount={false}

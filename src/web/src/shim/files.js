@@ -136,10 +136,10 @@ export function importDeck() {
   fileInput.click();
 }
 
-export function exportDeckTTS(deck, name, deck_type) {
+export async function exportDeckTTS(deck, name, deck_type, full_deck=null, sign_key=null) {
   const {tts_options} = window.electron.ipcRenderer.sendSync('get-consts');
   const fileName = name + '.json';
-  const blob = new Blob([writeTTS(deck, tts_options, deck_type)], {type: "text/json;charset=utf-8"});
+  const blob = new Blob([await writeTTS(deck, tts_options, deck_type, full_deck, sign_key)], {type: "text/json;charset=utf-8"});
 
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);

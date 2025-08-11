@@ -9,6 +9,7 @@
   import { filterAside, showStats, popupStore } from '../../stores/interface.js';
   import { default_settings } from '../../stores/defaults.js';
   import { user_cards, user_decks, settings, featured, option_set, settings_loaded, filteredSortedCards } from '../../stores/user_data.js';
+  import { karapet_score, motd_order } from '../../utils/draft.js';
   import { tokenizer } from '../../utils/stemmer.js'
 
   export let options_name = '';
@@ -17,8 +18,10 @@
   export let currentDeck = []
   export let currentDeckName = "Неизвестный пул"
 
-  let options = option_set[options_name];
-  let searchQuery = '';
+  let options = option_set[options_name]
+  let other_options = option_set['other_options']
+
+  let searchQuery = ''
 
   onMount(() => {
     const refreshListener = (_event, new_data, new_featured, new_decks) => {
@@ -77,7 +80,7 @@
   function resetFilters(_event){
     let setsOptions = Object.keys(sets)
     if(options_name === 'deckbuilding_options')
-      setsOptions = setsOptions.filter(x => x !== '22' && x !== '10')
+      setsOptions = setsOptions.filter(x => x !== '22' && x !== '10' && x !== '60')
     options.set({...default_settings[options_name],
       cardSize: $options.cardSize,
       dimAbsent: $options.dimAbsent,
@@ -170,6 +173,20 @@
             if (aMaxCost === 0) return 1;
             if (bMaxCost === 0) return -1;
             return $options.sortAsc * (aMaxCost - bMaxCost)
+          case 'karapet':
+            const aScore = karapet_score[`${a.set_id}`][a.number] || 0
+            const bScore = karapet_score[`${b.set_id}`][b.number] || 0
+            if (aScore === 0 && bScore === 0) return 0;
+            if (aScore === 0) return 1;
+            if (bScore === 0) return -1;
+            return $options.sortAsc * (bScore - aScore)
+          case 'motd':
+            const aScoreMotd = motd_order[`${a.set_id}`] ? motd_order[`${a.set_id}`].indexOf(a.number) : 1000
+            const bScoreMotd = motd_order[`${b.set_id}`] ? motd_order[`${b.set_id}`].indexOf(b.number) : 1000
+            if (aScoreMotd === 1000 && bScoreMotd === 1000) return 0;
+            if (aScoreMotd === 1000) return -1;
+            if (bScoreMotd === 1000) return 1;
+            return $options.sortAsc * (aScoreMotd - bScoreMotd)
           default: return 0;
         }
       })
@@ -190,11 +207,13 @@
     <input type="search" id="search" use:shortcuts={{keyboard: true}} on:action:find={(e)=> { e.target.focus() }} on:action:close={()=> { if(!$popupStore.isOpen) options.set({...$options, searchQuery: ""}) }} class="driver-search" name="search" placeholder="Поиск..." bind:value={searchQuery} tabindex="0" />
     <fieldset on:change="{handleOrderChange}" class="driver-sort">
     {#each Object.keys(orders) as val}
-      {#if val !== 'price' || options_name !== 'deckbuilding_options'}
+      {#if options_name !== 'deckbuilding_options' || val !== 'price'}
+      {#if options_name !== 'collection_options' || (val !== 'karapet' && val !== 'motd')}
       <label>
         <input type="radio" name="order" on:click="{handleOrderChange}" value="{val}" checked={$options.sortOrder === val} />
         {orders[val]}{#if $options.sortOrder === val}&nbsp;&nbsp;{#if $options.sortAsc === 1}&darr;{:else}&uarr;{/if}{/if}
       </label>
+      {/if}
       {/if}
     {/each}
     </fieldset>
@@ -253,7 +272,7 @@
         {/each}
        </fieldset>
     </details>
-    {#if options_name == 'deckbuilding_options'}
+    {#if options_name == 'deckbuilding_options' || $other_options['collection_all_filters']}
     <details bind:open={$options.details_eliteness}>
       <summary>Элитность</summary>
       <fieldset on:change="{(e) => { handleFilterChange(e, 'eliteness') }}">
@@ -279,7 +298,7 @@
        </fieldset>
     </details>
     <details bind:open={$options.details_moves}>
-      <summary>Ходы</summary>
+      <summary>Движение</summary>
       <fieldset on:change="{(e) => { handleFilterChange(e, 'moves') }}">
         {#each Object.keys(moves).reverse() as val}
           <label><input type="checkbox" name="moves" value="{val}" checked={$options.moves?.indexOf(val) >= 0} tabindex="0" />{moves[val]}</label>
@@ -320,7 +339,7 @@
        </fieldset>
     </details>
     </div>
-    {#if options_name == 'deckbuilding_options'}
+    {#if options_name == 'deckbuilding_options' || $other_options['collection_all_filters']}
     <details bind:open={$options.details_icons}>
       <summary>Свойства</summary>
       <fieldset on:change="{(e) => { handleFilterChange(e, 'icons') }}">

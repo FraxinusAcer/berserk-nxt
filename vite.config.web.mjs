@@ -57,7 +57,7 @@ export default defineConfig({
 
         const assets = Object.keys(bundle).filter(name => {
           const asset = bundle[name];
-          return asset.type === 'asset' || asset.isEntry;
+          return asset.type === 'asset' || asset.isEntry
         });
 
         fs.ensureDirSync(path.resolve(__dirname, 'out_web/assets/cards'));
@@ -70,7 +70,7 @@ export default defineConfig({
         fs.writeFileSync(path.resolve(__dirname, 'out_web/service-worker.js'), swUpdated, 'utf-8');
 
         const additionalFiles = collectFilesRecursively(path.resolve(__dirname, './src/renderer/cards/'));
-        const cardFiles = [...new Set(additionalFiles)];
+        const cardFiles = [...new Set(additionalFiles.filter(file => !file.includes('AsqTR')))];
         fs.writeFileSync(path.resolve(__dirname, 'out_web/assets/cards', 'index.json'), JSON.stringify(cardFiles), 'utf-8');
 
         console.log(`Asset list generated`);

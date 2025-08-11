@@ -21,15 +21,13 @@ const deck_predictor = new DeckRecommender(card_data),
 const addon_names : string[] = []
 fs.readdirSync(resources_path).filter(file => file.startsWith('addon') && file.endsWith('.json')).forEach(addon_name => {
   addon_names.push(addon_name)
-  const data_addon = JSON.parse(fs.readFileSync(join(resources_path, addon_name), 'utf8'))
-  if(data_addon['cards']) card_data = card_data.concat(data_addon['cards'])
-  if(data_addon['const']) deepMerge(card_const, data_addon['const'])
 })
 
 card_data = card_data.flatMap((card) => {
+  const promos = card["promos"] || []
   const ret = [{...card, alt: "", altto: null}]
   for (const alt of card["alts"]) {
-    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, ban: card["ban"] ? card["ban"][alt] : false })
+    ret.push({ ...card, id: `${card["id"]}${alt}`, altto: card["id"], alt: alt, prints: {}, promo: promos.includes(alt), ban: card["ban"] ? card["ban"][alt] : false })
   }
   if(card["ban"]) ret[0]["ban"] = card["ban"][""]
   return ret
@@ -98,6 +96,22 @@ const settings_store = new Store({
     },
     '5.0.9': (store) => {
       if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
+    },
+    '5.2.1': (store) => {
+      if(!store.has("settings.draft_options.draft_key")) store.set("settings.draft_options.draft_key", "")
+      if(!store.has("settings.draft_options.last_draft_key")) store.set("settings.draft_options.last_draft_key", "")
+      if(!store.has("settings.draft_options.new_draft_key")) store.set("settings.draft_options.new_draft_key", "")
+    },
+    '5.2.2': (store) => {
+      if(!store.has("settings.draft_options.last_full_draft")) store.set("settings.draft_options.last_full_draft", null)
+    },
+    '5.2.3': (store) => {
+      store.set("settings.draft_options.last_draft_key", [])
+    },
+    '6.2.0': (store) => {
+      store.set("settings.other_options.screenshot_size", 1)
+      store.set("settings.other_options.screenshot_quality", 98)
+      store.set("settings.other_options.collection_all_filters", false)
     },
   }
 })
@@ -274,8 +288,8 @@ app.whenReady().then(async () => {
     event.returnValue = null
   })
 
-  ipcMain.on('save-deck', (event, deck, name, type, deck_type) => {
-    if(type === 'tts') exportDeckTTS(deck, name, deck_type)
+  ipcMain.on('save-deck', (event, deck, name, type, deck_type, full_deck, sign_key) => {
+    if(type === 'tts') exportDeckTTS(deck, name, deck_type, full_deck, sign_key)
     else exportDeck(deck, name, type)
     event.returnValue = null
   })
@@ -324,8 +338,7 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.on('save-draft', (event, _, draft, name) => {
-    exportDraft(draft, name)
-    event.returnValue = null
+    event.returnValue = exportDraft(draft, name)
   })
 
   ipcMain.on('load-draft', (event) => {
@@ -350,9 +363,9 @@ app.whenReady().then(async () => {
     event.returnValue = !!deck_predictor.session
   })
 
-  ipcMain.handle('predict-card', async (_event, deck) => {
+  ipcMain.handle('predict-card', async (_event, deck, pool) => {
     try {
-      return await deck_predictor.predict(deck)
+      return await deck_predictor.predict(deck, 5, pool)
     } catch (e) {
       console.log("Error start deck_predictor", e);
       return null
@@ -413,6 +426,8 @@ let submenuTemplate : MenuItemConstructorOptions[] = [
 ]
 
 submenuTemplate.push({ type: 'separator' })
+let testingModeItem = { label: 'Перейти в режим тестирования', click: enableAddon }
+submenuTemplate.push(testingModeItem)
 submenuTemplate.push({ label: 'Добавить тестовые данные', click: patchAddon })
 addon_names.map(name => {
   submenuTemplate.push({ label: `Удалить: ${name.replace(/^addon\-?(.*)\.json$/,'$1') || 'basic'}`, click: () => { removeAddon(name) } })
@@ -485,7 +500,7 @@ else
   });
  */
 
-Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
+Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 
 function resetCollection() {
   const options : MessageBoxOptions = {
@@ -790,7 +805,7 @@ function importDeck() {
 
 
 
-function exportDeckTTS(deck, name, deck_type = 'Констрактед') {
+function exportDeckTTS(deck, name, deck_type = 'Констрактед', full_deck=null, sign_key=null) {
   const platform = os.platform();
   let path = app.getPath('downloads')
   if (platform === 'darwin') {
@@ -811,9 +826,9 @@ function exportDeckTTS(deck, name, deck_type = 'Констрактед') {
     filters: [
         { name: 'Файл экспорта TTS', extensions: ['json'] }
     ]
-  }).then(file => {
+  }).then(async (file) => {
     if (!file.canceled) {
-      const content = writeTTS(deck, card_const['tts_options'], deck_type);
+      const content = await writeTTS(deck, card_const['tts_options'], deck_type, full_deck, sign_key);
       if(file.filePath) {
         fs.writeFileSync(file.filePath.toString(), content, 'utf-8');
         fs.copyFileSync(join(resources_path, 'back.png'), file.filePath.replace(/\.json$/, '.png'));
@@ -897,6 +912,27 @@ function manageArchives(archivesDir) {
   });
 }
 
+
+function enableAddon(): void {
+  addon_names.forEach(addon_name => {
+    const data_addon = JSON.parse(fs.readFileSync(join(resources_path, addon_name), 'utf8'))
+    if(data_addon['cards']) card_data = card_data.concat(data_addon['cards'])
+    if(data_addon['const']) deepMerge(card_const, data_addon['const'])
+  })
+
+  BrowserWindow.getAllWindows().forEach((win) => {
+    win.webContents.reload()
+  })
+  testingModeItem.label = 'Завершить режим тестирования'
+  testingModeItem.click = disableAddon
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
+}
+
+function disableAddon(): void {
+  app.relaunch()
+  app.exit()
+}
+
 function patchAddon(): void{
   dialog.showOpenDialog({
     title: 'Загрузить тестовое дополнение',
@@ -932,7 +968,7 @@ function removeAddon(name) : void {
 }
 
 function exportDraft(draft, name) {
-  dialog.showSaveDialog({
+  return dialog.showSaveDialog({
     title: 'Сохранить драфт',
     defaultPath: join(app.getPath('downloads'), name + '.brsl'),
     buttonLabel: 'Сохранить',
@@ -1013,7 +1049,9 @@ function resetSettings() {
   })
 
   if (response === 1) {
+    const last_draft_key = settings_store.get('settings.draft_options.last_draft_key')
     settings_store.set('settings', default_settings)
+    settings_store.set('settings.draft_options.last_draft_key', last_draft_key)
     app.relaunch()
     app.quit()
   }

@@ -12,10 +12,12 @@
   import { SvelteToast } from '@zerodevx/svelte-toast'
   //import Table from "./components/Table.svelte";
   import DropZone from './components/includes/DropZone.svelte'
+  //import Promo from './components/includes/Promo.svelte'
   import About from './components/includes/About.svelte'
+  import Settings from './components/includes/Settings.svelte'
   import PrintDeckList from './components/includes/PrintDeckList.svelte'
   import { groupCards, byId } from './stores/cards.js';
-  import { toggleAside, secondLevelMenu, toggleStats, toggleMainMenu, showMainMenu, setDeckId, currentDeck, deckEditMode, loader, awaiter, toggleAbout, togglePrintDeckList } from './stores/interface.js';
+  import { toggleAside, secondLevelMenu, toggleStats, toggleMainMenu, showMainMenu, setDeckId, currentDeck, deckEditMode, loader, awaiter, toggleAbout, toggleSettings, togglePrintDeckList } from './stores/interface.js';
   import { shortcuts } from './utils/shortcuts.js';
   import { takeScreenshot } from './utils/ux.js'
   import { user_decks } from './stores/user_data.js';
@@ -126,8 +128,8 @@
         {@const deck_id = $currentDeck.deck_id}
         <li><button class="a" use:shortcuts on:action:primary={() => { cloneDeck(deck_id) }}>Дублировать колоду</button></li>
         <li><hr /></li>
-        <li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('save-deck', groupCards($user_decks['decks'][deck_id].cards), $user_decks['decks'][deck_id].name, 'brs'); }}>Сохранить колоду</button></li>
-        <li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('save-deck', groupCards($user_decks['decks'][deck_id].cards), $user_decks['decks'][deck_id].name, 'proberserk'); }}>Экспорт в TXT (ProBerserk)</button></li>
+        <!-- li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('save-deck', groupCards($user_decks['decks'][deck_id].cards), $user_decks['decks'][deck_id].name, 'brs'); }}>Сохранить колоду</button></li -->
+        <li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('save-deck', groupCards($user_decks['decks'][deck_id].cards), $user_decks['decks'][deck_id].name, 'proberserk'); }}>Сохранить колоду (txt)</button></li>
         <li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('save-deck', byId($user_decks['decks'][deck_id].cards), $user_decks['decks'][deck_id].name, 'tts'); }}>Экспорт в TTS</button></li>
         <li><button class="a" use:shortcuts on:action:primary={() => { takeScreenshot('#deck-view', $user_decks['decks'][deck_id].name, groupCards($user_decks['decks'][deck_id].cards, 'asis')); }}>Декшот JPEG</button></li>
         <li><hr /></li>
@@ -138,7 +140,7 @@
     <li>
       <strong>Приложение</strong>
       <ul>
-        <!-- li><a use:shortcuts on:action:primary={() => {  }}>Настройки</a></li -->
+        <li><button class="a" use:shortcuts on:action:primary={toggleSettings}>Настройки</button></li>
         <li><button class="a" use:shortcuts on:action:primary={() => { window.electron.ipcRenderer.send('start-tour') }}>Короткая справка</button></li>
         <li><button class="a" use:shortcuts on:action:primary={toggleAbout}>О программе</button></li>
       </ul>
@@ -167,12 +169,15 @@
 </main>
 
 <About />
+<Settings />
 
 <PrintDeckList />
 
 <DropZone>
   <h3>Перетащи файлы сюда,<br /><em>попробуем их импортировать...</em></h3>
 </DropZone>
+
+<!-- Promo / -->
 
 <svg width="0" height="0" style="position: absolute;">
   <filter id="removeWhite">
