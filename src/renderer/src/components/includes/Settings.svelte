@@ -30,15 +30,15 @@
         <h3>Настройки</h3>
         <fieldset>
           <label>
-            <input type="checkbox" checked={$options['screenshot_size'] > 1} on:input={() => { updateSettings('screenshot_size', event.target.checked ? 2 : 1) } } />
+            <input type="checkbox" checked={$options['screenshot_size'] > 1} on:input={() => { updateSettings('screenshot_size', event.target['checked'] ? 2 : 1) } } />
             2x масштаб скриншота
           </label>
           <label>
-            <input type="checkbox" checked={$options['screenshot_quality'] > 98} on:input={() => { updateSettings('screenshot_quality', event.target.checked ? 100 : 95) } } />
+            <input type="checkbox" checked={$options['screenshot_quality'] > 98} on:input={() => { updateSettings('screenshot_quality', event.target['checked'] ? 100 : 95) } } />
             Улучшенное качество скриншота
           </label>
           <label>
-            <input type="checkbox" checked={$options['collection_all_filters']} on:input={() => { updateSettings('collection_all_filters', event.target.checked) } } />
+            <input type="checkbox" checked={$options['collection_all_filters']} on:input={() => { updateSettings('collection_all_filters', event.target['checked']) } } />
             Все фильтры в коллекции
           </label>
         </fieldset>
