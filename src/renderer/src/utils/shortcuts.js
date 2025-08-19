@@ -24,6 +24,8 @@ const config = {
   enter: 'action:enter',
   backspace: 'action:delete',
   delete: 'action:delete',
+  'ctrl+delete': 'action:forcedelete',
+  'ctrl+backspace': 'action:forcedelete',
   'ctrl+f': 'action:find',
   'ctrl+n': 'action:new',
   'ctrl+s': 'action:save',

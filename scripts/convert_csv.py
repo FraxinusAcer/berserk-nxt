@@ -126,7 +126,7 @@ for index, row in df.iterrows():
         "tokens": process_tokens(row, icons),
         "text": row['text'] if pd.notna(row['text']) else "",
         "prints": {},
-        "alts": [], #["alt"] if fullid in alts_data["alt"] else [],
+        "alts": [] #if int(row['rarity']) <= 2 else ["f"], #["alt"] if fullid in alts_data["alt"] else [],
     }
     print(', ' + json.dumps(card, ensure_ascii=False, separators=(',', ':')))
     #print(f"cp {card["number"]}.jpg 1")

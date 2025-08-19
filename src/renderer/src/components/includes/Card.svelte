@@ -14,6 +14,7 @@
   export let onminus = (_e, _card, _alt) => {}
 
   export let ondelete = null
+  export let onforcedelete = null
   export let ontap = (_card) => {}
   export let onflip = (_card) => {}
 
@@ -90,6 +91,7 @@
             toggleFeatured(card)
           }}
       on:action:delete={ondelete || (() => {})}
+      on:action:forcedelete={onforcedelete || (() => {})}
       on:action:tap={ontap}
       on:action:flip={onflip}
       class="card__rotator"
