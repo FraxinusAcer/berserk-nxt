@@ -87,7 +87,7 @@
       </li>
 
       <li><Link href="/" aria-current={$router.path == '/' ? 'page' : ''}>Коллекция</Link></li>
-      <li class="driver-deck-build"><Link href={$currentDeck.deck_id === null ? '/app/decks' : `/app/${$deckEditMode}`} aria-current={['/app/decks','/app/deal','/app/deckbuilder'].includes($router.path) ? 'page' : ''}>Колоды</Link></li>
+      <li class="driver-deck-build"><Link href={$currentDeck.deck_id === null || $router.path == `/app/${$deckEditMode}` ? '/app/decks' : `/app/${$deckEditMode}`} aria-current={['/app/decks','/app/deal','/app/deckbuilder'].includes($router.path) ? 'page' : ''}>Колоды</Link></li>
       <li class="driver-deck-limited"><Link href="/app/draft" aria-current={$router.path == '/app/draft' ? 'page' : ''}>Лимитед</Link></li>
       <!-- li class="driver-deck-table"><Link href="/app/table" aria-current={$router.path == '/app/table' ? 'page' : ''}>Стол</Link></li -->
     </ul>

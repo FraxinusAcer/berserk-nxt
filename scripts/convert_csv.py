@@ -12,6 +12,7 @@ from nltk.stem.snowball import SnowballStemmer
 
 from nltk.tokenize import word_tokenize
 
+DOALTS = True
 CURRENT_SET = 60
 
 stop_words = set(['x', 'и', 'в', 'во', 'что', 'он', 'я', 'с', 'со', 'как', 'а', 'то', 'все', 'она', 'так', 'его', 'но', 'да', 'ты', 'к', 'у', 'же', 'вы', 'за', 'бы', 'ее', 'мне', 'было', 'вот', 'от', 'меня', 'еще', 'нет', 'о', 'из', 'ему', 'теперь', 'даже', 'ну', 'вдруг', 'ли', 'если', 'уже', 'или', 'ни', 'быть', 'был', 'него', 'до', 'вас', 'нибудь', 'опять', 'уж', 'вам', 'ведь', 'там', 'потом', 'себя', 'ничего', 'ей', 'они', 'тут', 'где', 'есть', 'надо', 'ней', 'для', 'мы', 'тебя', 'их', 'чем', 'была', 'сам', 'чтоб', 'без', 'будто', 'чего', 'раз', 'тоже', 'себе', 'под', 'ж', 'тогда', 'кто', 'этот', 'того', 'потому', 'этого', 'какой', 'совсем', 'ним', 'здесь', 'этом', 'один', 'почти', 'мой', 'тем', 'чтобы', 'нее', 'сейчас', 'были', 'куда', 'зачем', 'всех', 'никогда', 'можно', 'наконец', 'два', 'об', 'другой', 'хоть', 'после', 'над', 'больше', 'тот', 'эти', 'нас', 'про', 'них', 'какая', 'много', 'разве', 'эту', 'моя', 'впрочем', 'хорошо', 'свою', 'этой', 'иногда', 'лучше', 'чуть', 'том', 'такой', 'им', 'более', 'конечно', 'всю'])
@@ -103,12 +104,21 @@ for index, row in df.iterrows():
     if not pd.notna(row['name']):
         continue
     #print(row['name'])
+    number = int(row['number'])
     icons = process_icons(row)
     fullid = f"{CURRENT_SET*1000 + int(row['number'])}"
+    alts = []
+    if DOALTS:
+      if int(row['rarity']) > 2:
+        alts.append("f")
+      for alt, card_numbers in alts_data[str(CURRENT_SET)].items():
+        if number in card_numbers:
+          alts.append(alt)
+
     card = {
         "id": fullid,
         "set_id": CURRENT_SET,
-        "number": int(row['number']),
+        "number": number,
         "name": row['name'],
         "rarity": int(row['rarity']),
         "cost": int(row['cost']),
@@ -126,7 +136,7 @@ for index, row in df.iterrows():
         "tokens": process_tokens(row, icons),
         "text": row['text'] if pd.notna(row['text']) else "",
         "prints": {},
-        "alts": [] #if int(row['rarity']) <= 2 else ["f"], #["alt"] if fullid in alts_data["alt"] else [],
+        "alts": alts
     }
     print(', ' + json.dumps(card, ensure_ascii=False, separators=(',', ':')))
     #print(f"cp {card["number"]}.jpg 1")

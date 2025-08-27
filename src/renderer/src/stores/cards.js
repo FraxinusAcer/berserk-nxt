@@ -1,4 +1,4 @@
-export const {sets, rarities, colors, eliteness, alternatives, user_alternatives, creature_types, collection_counts, orders, art_suffix, icons, tag_colors, tts_options } = window.electron.ipcRenderer.sendSync('get-consts');
+export const {sets, sets_rotated, rarities, colors, eliteness, alternatives, user_alternatives, creature_types, collection_counts, orders, art_suffix, icons, tag_colors, tts_options } = window.electron.ipcRenderer.sendSync('get-consts');
 export const cardsStore = window.electron.ipcRenderer.sendSync('get-cards')
 
 export const cards = cardsStore.reduce((ret, card)=> {

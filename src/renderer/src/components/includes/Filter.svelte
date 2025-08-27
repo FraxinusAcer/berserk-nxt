@@ -5,7 +5,7 @@
   import { quintOut } from 'svelte/easing';
   import { shortcuts } from '../../utils/shortcuts.js';
 
-  import { byId, cardsStore, orders, sets, rarities, colors, eliteness, creature_types, collection_counts, classes, costs, moves, lifes, offitial_alternatives, min_hits, mid_hits, max_hits, icons } from '../../stores/cards.js';
+  import { byId, cardsStore, orders, sets, rarities, colors, eliteness, creature_types, collection_counts, classes, costs, moves, lifes, offitial_alternatives, min_hits, mid_hits, max_hits, icons, sets_rotated } from '../../stores/cards.js';
   import { filterAside, showStats, popupStore } from '../../stores/interface.js';
   import { default_settings } from '../../stores/defaults.js';
   import { user_cards, user_decks, settings, featured, option_set, settings_loaded, filteredSortedCards } from '../../stores/user_data.js';
@@ -80,7 +80,7 @@
   function resetFilters(_event){
     let setsOptions = Object.keys(sets)
     if(options_name === 'deckbuilding_options')
-      setsOptions = setsOptions.filter(x => x !== '22' && x !== '10' && x !== '60')
+      setsOptions = setsOptions.filter(x => !sets_rotated.includes(x))
     options.set({...default_settings[options_name],
       cardSize: $options.cardSize,
       dimAbsent: $options.dimAbsent,
