@@ -24,7 +24,7 @@
     on:action:preview={toggleSettings}
     on:action:close|stopImmediatePropagation={toggleSettings}
   >
-  <article id="settings" on:click|stopPropagation={() => {}}>
+  <article id="settings" role="none" on:click|stopPropagation={() => {}}>
       <div style="min-width: 800px">
         <button class="a deck-delete close-popup" on:click={toggleSettings}>&cross;</button>
         <h3>Настройки</h3>

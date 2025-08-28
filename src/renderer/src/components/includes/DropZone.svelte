@@ -111,7 +111,26 @@
           }
         })
       }
-    };
+    }
+
+    const handleDeeplink = async (url) => {
+      if(url === '') return
+      const u = new URL(url)
+      if (u.hostname === 'deck') {
+        const deckurl = u.searchParams.get('url')
+        if(deckurl && deckurl.startsWith('https://proberserk.ru/')) {
+          window.electron.ipcRenderer.invoke('download-deck', deckurl).then((response) => {
+            readAndAddDeck(u.searchParams.get('name') ?? url.pathname.split('/').pop(), response)
+          })
+        } else {
+          readAndAddDeck(u.searchParams.get('name'), u.searchParams.get('content').split(':').join('\n'))
+        }
+      }
+    }
+
+    window.electron.ipcRenderer.on('deeplink', (_, url) => handleDeeplink(url))
+    const initial = window.electron.ipcRenderer.sendSync('get-deeplink')
+    handleDeeplink(initial)
 
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('dragenter', handleDragEnter);
@@ -119,6 +138,7 @@
     document.addEventListener('drop', handleDrop);
 
     return () => {
+      window.electron.ipcRenderer.removeAllListeners('deeplink')
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('dragenter', handleDragEnter);
       document.removeEventListener('dragleave', handleDragLeave);
@@ -128,7 +148,7 @@
 
   async function loadFromBuffer() {
     let content = await navigator.clipboard.readText();
-    if(content.startsWith('https://proberserk.ru')) {
+    if(content.startsWith('https://proberserk.ru/')) {
       if(!content.endsWith('.txt')) content += '.txt';
       window.electron.ipcRenderer.invoke('download-deck', content).then((response) => {
         const url = new URL(content);

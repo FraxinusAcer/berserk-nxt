@@ -64,6 +64,10 @@ linux:
   icon: ./build/icon512.png
   desktop:
     Encoding: UTF-8
+protocols:
+  name: Berserk Nxt Protocol
+  schemes:
+    - berserknxt
 appImage:
   artifactName: berserk-nxt-lin-${version}-${arch}.${ext}
 snap:

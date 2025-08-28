@@ -10,6 +10,7 @@ import { installAddon, deinstallAddon } from './updater.js'
 import { DeckRecommender, DraftRecommender } from './predictors.js'
 import fs from 'fs-extra'
 import axios from 'axios'
+import { SafeStore } from './safe-store'
 
 const resources_path = is.dev ? join(__dirname, '../../resources') : join(process.resourcesPath, 'app.asar.unpacked', 'resources')
 let card_data = JSON.parse(fs.readFileSync(join(resources_path, 'data.json'), 'utf8'))
@@ -33,193 +34,184 @@ card_data = card_data.flatMap((card) => {
   return ret
 })
 
+const path = require('path')
 const tar = require('tar')
-const chokidar = require('chokidar')
 const jsQR = require('jsqr')
 const jpeg = require('jpeg-js')
-const Store = require('electron-store')
 const os = require('os')
 
-const settings_store = new Store({
-  name: 'user_settings',
-  defaults: {settings: default_settings},
-  serialize: is.dev ? (value) => { return JSON.stringify(value, null, ' ') } : JSON.stringify,
-  migrations: {
-    '0.5.5': (store) => store.clear(),
-    '0.6.6': (store) => {
-      const boosters = store.get("settings.draft_options.boosters_set");
-      if(boosters.length == 4)
-        store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
-    },
-    '0.6.7': (store) => {
-      store.set("settings.deal_options", default_settings['deal_options'])
-    },
-    '0.7.3': (store) => {
-      if(!store.has("settings.deal_options.deck"))
-        store.set("settings.deal_options.deck", [])
-    },
-    '0.8.1': (store) => {
-      if(!store.has("settings.collection_options.icons")) store.set("settings.collection_options.icons", [])
-      if(!store.has("settings.deckbuilding_options.icons")) store.set("settings.deckbuilding_options.icons", [])
-    },
-    '1.2.10': (store) => {
-      store.set("settings.other_options", {})
-    },
-    '1.4.7': (store) => {
-      if(!store.has("settings.draft_options.last_boosters")) store.set("settings.draft_options.last_boosters", null)
-      if(!store.has("settings.draft_options.replay")) store.set("settings.draft_options.replay", false)
-    },
-    '1.5.0': (store) => {
-      store.set("settings.draft_options.last_boosters", [null,null,null,null])
-    },
-    '1.6.5': (store) => {
-      if(!store.has("settings.collection_options.ldb")) store.set("settings.collection_options.ldb", [])
-      if(!store.has("settings.deckbuilding_options.ldb")) store.set("settings.deckbuilding_options.ldb", [])
-    },
-    '1.6.7': (store) => {
-      store.set("settings.collection_options.ldb", [])
-      store.set("settings.deckbuilding_options.ldb", [])
-    },
-    '1.7.1': (store) => {
-      if(!store.has("settings.deckbuilding_options.useCardPool")) store.set("settings.deckbuilding_options.useCardPool", false)
-      if(!store.has("settings.deckbuilding_options.cardPoolName")) store.set("settings.deckbuilding_options.cardPoolName", "")
-      if(!store.has("settings.deckbuilding_options.cardPool")) store.set("settings.deckbuilding_options.cardPool", [])
-    },
-    '1.7.4': (store) => {
-      if(!store.has("settings.draft_options.their_cards")) store.set("settings.deckbuilding_options.their_cards", Array.from({ length: 16 }, () => []))
-      if(!store.has("settings.draft_options.look_at")) store.set("settings.deckbuilding_options.look_at", null)
-    },
-    '1.9.0': (store) => {
-      const boosters = store.get("settings.draft_options.boosters_set");
-      if(boosters.length == 4)
-        store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
-    },
-    '5.0.9': (store) => {
-      if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
-    },
-    '5.2.1': (store) => {
-      if(!store.has("settings.draft_options.draft_key")) store.set("settings.draft_options.draft_key", "")
-      if(!store.has("settings.draft_options.last_draft_key")) store.set("settings.draft_options.last_draft_key", "")
-      if(!store.has("settings.draft_options.new_draft_key")) store.set("settings.draft_options.new_draft_key", "")
-    },
-    '5.2.2': (store) => {
-      if(!store.has("settings.draft_options.last_full_draft")) store.set("settings.draft_options.last_full_draft", null)
-    },
-    '5.2.3': (store) => {
-      store.set("settings.draft_options.last_draft_key", [])
-    },
-    '6.2.0': (store) => {
-      store.set("settings.other_options.screenshot_size", 1)
-      store.set("settings.other_options.screenshot_quality", 98)
-      store.set("settings.other_options.collection_all_filters", false)
-    },
-  }
-})
+// ==============================
+// STORES (SafeStore для всех 4-х)
+// ==============================
 
-const settings_path = settings_store.get('settings.settings_path')
-createArchive(settings_path || dirname(settings_store.path))
-
+// 1) settings — сначала, чтобы узнать settings_path для остальных
 const stores = {
-  'cards': new Store({
-    name: 'user_cards',
-    cwd: settings_path ? settings_path : undefined,
-    defaults: {cards: {}},
-    serialize: is.dev ? (value) => { return JSON.stringify(value, null, ' ') } : JSON.stringify,
+  settings: new SafeStore<any>({
+    name: 'user_settings',
+    rootKey: 'settings',
+    defaults: { settings: default_settings },
+    serialize: is.dev ? (value) => JSON.stringify(value, null, ' ') : JSON.stringify,
     migrations: {
-      '0.4.0': (store) => store.clear(),
-    }
-  }),
-  'featured': new Store({
-    name: 'featured',
-    cwd: settings_path ? settings_path : undefined,
-    defaults: {featured: {"": []}},
-    serialize: is.dev ? (value) => { return JSON.stringify(value, null, ' ') } : JSON.stringify
-  }),
-  'decks':  new Store({
-    name: 'user_decks',
-    cwd: settings_path ? settings_path : undefined,
-    defaults: {decks: {decks: []}},
-    serialize: is.dev ? (value) => { return JSON.stringify(value, null, ' ') } : JSON.stringify,
-    migrations: {
-      '0.4.0': (store) => store.clear(),
-      '0.9.1': (store) => {
-        store.set("decks.tags", ["Избранное", "В работе", "Констрактед", "Драфт", "Силед", "Импорт", "Эксперимент", "Фан", "Архив"])
-        const decks = store.get("decks.decks");
-        decks.forEach((deck) => {
-          const matches = /\{.*?\}\sот\s(\d{2}-\d{2}-\d{4})/.exec(deck['name']);
-          let timestamp;
-          if (matches && matches.length > 1) {
-            const dateParts = matches[1].split('-');
-            timestamp = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0])).getTime();
-          } else timestamp = Date.now();
-          deck['date'] = timestamp;
-          deck['tags'] = [];
-          if(deck['name'].toLocaleLowerCase().indexOf('драфт') > -1) deck['tags'].push('Драфт')
-          else if(deck['name'].toLocaleLowerCase().indexOf('силед') > -1) deck['tags'].push('Силед')
-          else deck['tags'].push('Констрактед')
-          if(deck['cards'].length < 30) deck['tags'].push('В работе')
-
-        });
-        store.set("decks.decks", decks)
+      '0.5.5': (store) => store.clear(),
+      '0.6.6': (store) => {
+        const boosters = store.get("settings.draft_options.boosters_set") as any;
+        if(Array.isArray(boosters) && boosters.length == 4)
+          store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
+      },
+      '0.6.7': (store) => {
+        store.set("settings.deal_options", (default_settings as any)['deal_options'])
+      },
+      '0.7.3': (store) => {
+        if(!store.has("settings.deal_options.deck"))
+          store.set("settings.deal_options.deck", [])
+      },
+      '0.8.1': (store) => {
+        if(!store.has("settings.collection_options.icons")) store.set("settings.collection_options.icons", [])
+        if(!store.has("settings.deckbuilding_options.icons")) store.set("settings.deckbuilding_options.icons", [])
+      },
+      '1.2.10': (store) => {
+        store.set("settings.other_options", {})
+      },
+      '1.4.7': (store) => {
+        if(!store.has("settings.draft_options.last_boosters")) store.set("settings.draft_options.last_boosters", null)
+        if(!store.has("settings.draft_options.replay")) store.set("settings.draft_options.replay", false)
+      },
+      '1.5.0': (store) => {
+        store.set("settings.draft_options.last_boosters", [null,null,null,null])
+      },
+      '1.6.5': (store) => {
+        if(!store.has("settings.collection_options.ldb")) store.set("settings.collection_options.ldb", [])
+        if(!store.has("settings.deckbuilding_options.ldb")) store.set("settings.deckbuilding_options.ldb", [])
+      },
+      '1.6.7': (store) => {
+        store.set("settings.collection_options.ldb", [])
+        store.set("settings.deckbuilding_options.ldb", [])
+      },
+      '1.7.1': (store) => {
+        if(!store.has("settings.deckbuilding_options.useCardPool")) store.set("settings.deckbuilding_options.useCardPool", false)
+        if(!store.has("settings.deckbuilding_options.cardPoolName")) store.set("settings.deckbuilding_options.cardPoolName", "")
+        if(!store.has("settings.deckbuilding_options.cardPool")) store.set("settings.deckbuilding_options.cardPool", [])
+      },
+      '1.7.4': (store) => {
+        if(!store.has("settings.draft_options.their_cards")) store.set("settings.deckbuilding_options.their_cards", Array.from({ length: 16 }, () => []))
+        if(!store.has("settings.draft_options.look_at")) store.set("settings.deckbuilding_options.look_at", null)
+      },
+      '1.9.0': (store) => {
+        const boosters = store.get("settings.draft_options.boosters_set") as any;
+        if(Array.isArray(boosters) && boosters.length == 4)
+          store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
+      },
+      '5.0.9': (store) => {
+        if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
+      },
+      '5.2.1': (store) => {
+        if(!store.has("settings.draft_options.draft_key")) store.set("settings.draft_options.draft_key", "")
+        if(!store.has("settings.draft_options.last_draft_key")) store.set("settings.draft_options.last_draft_key", "")
+        if(!store.has("settings.draft_options.new_draft_key")) store.set("settings.draft_options.new_draft_key", "")
+      },
+      '5.2.2': (store) => {
+        if(!store.has("settings.draft_options.last_full_draft")) store.set("settings.draft_options.last_full_draft", null)
+      },
+      '5.2.3': (store) => {
+        store.set("settings.draft_options.last_draft_key", [])
+      },
+      '6.2.0': (store) => {
+        store.set("settings.other_options.screenshot_size", 1)
+        store.set("settings.other_options.screenshot_quality", 98)
+        store.set("settings.other_options.collection_all_filters", false)
       },
     }
-  }),
-  'settings': settings_store
+  })
+} as any
+
+const settings_obj = stores.settings.get() || {}
+const settings_path: string | undefined = settings_obj.settings_path
+
+// 2) остальные сторы — уже с cwd из настроек (если задан)
+stores.cards = new SafeStore<any>({
+  name: 'user_cards',
+  rootKey: 'cards',
+  cwd: settings_path ? settings_path : undefined,
+  defaults: { cards: {} },
+  serialize: is.dev ? (value) => JSON.stringify(value, null, ' ') : JSON.stringify
+})
+
+stores.featured = new SafeStore<any>({
+  name: 'featured',
+  rootKey: 'featured',
+  cwd: settings_path ? settings_path : undefined,
+  defaults: { featured: {"": []} },
+  serialize: is.dev ? (value) => JSON.stringify(value, null, ' ') : JSON.stringify
+})
+
+stores.decks = new SafeStore<any>({
+  name: 'user_decks',
+  rootKey: 'decks',
+  cwd: settings_path ? settings_path : undefined,
+  defaults: { decks: { decks: [] } },
+  serialize: is.dev ? (value) => JSON.stringify(value, null, ' ') : JSON.stringify,
+  migrations: {
+    '0.4.0': (store) => store.clear(),
+    '0.9.1': (store) => {
+      store.set("decks.tags", ["Избранное", "В работе", "Констрактед", "Драфт", "Силед", "Импорт", "Эксперимент", "Фан", "Архив"])
+      const decks = (store.get("decks.decks") as any[]) || [];
+      decks.forEach((deck: any) => {
+        const matches = /\{.*?\}\sот\s(\d{2}-\d{2}-\d{4})/.exec(deck['name']);
+        let timestamp: number;
+        if (matches && matches.length > 1) {
+          const dateParts = matches[1].split('-');
+          timestamp = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0])).getTime();
+        } else timestamp = Date.now();
+        deck['date'] = timestamp;
+        deck['tags'] = [];
+        if (deck['name'].toLocaleLowerCase().indexOf('драфт') > -1) deck['tags'].push('Драфт')
+        else if (deck['name'].toLocaleLowerCase().indexOf('силед') > -1) deck['tags'].push('Силед')
+        else deck['tags'].push('Констрактед')
+        if ((deck['cards'] || []).length < 30) deck['tags'].push('В работе')
+      });
+      store.set("decks.decks", decks)
+    },
+  },
+})
+
+// Архивация json’ов рядом с settings
+createArchive(settings_path || dirname(stores.settings.path))
+
+// Рассылка изменений (аналог старых watcher’ов, но безопасно)
+stores.cards.onChange((val: any) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    win.webContents.send('refresh', val, null, null)
+  })
+})
+stores.featured.onChange((val: any) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    win.webContents.send('refresh', null, val, null)
+  })
+})
+stores.decks.onChange((val: any) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    win.webContents.send('refresh', null, null, val)
+  })
+})
+
+let mainWindow: BrowserWindow | null = null
+let pendingDeepLink: string | null = null
+
+function handleDeepLink(url: string) {
+  pendingDeepLink = url
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+    mainWindow.webContents.send('deeplink', pendingDeepLink)
+    pendingDeepLink = null
+  }
 }
 
-const watchers = {
-  'cards': {
-    'watchers': chokidar.watch(stores['cards'].path, {
-        ignoreInitial: true,
-        awaitWriteFinish: true
-    }).on('change', _path => {
-      if(watchers['cards']['updating'])
-        setTimeout(()=> watchers['cards']['updating'] = false, 100)
-      else
-        BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('refresh', stores['cards'].get('cards'), null, null);
-        })
-    }),
-    'updating': false
-  },
-  'decks': {
-    'watchers': chokidar.watch(stores['decks'].path, {
-        ignoreInitial: true,
-        awaitWriteFinish: true
-    }).on('change', _path => {
-      if(watchers['decks']['updating'])
-        setTimeout(()=> watchers['decks']['updating'] = false, 100)
-      else
-        BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('refresh', null, null, stores['decks'].get('decks'))
-        })
-    }),
-    'updating': false
-  },
-  'featured': {
-    'watchers': chokidar.watch(stores['featured'].path, {
-      ignoreInitial: true,
-      awaitWriteFinish: true
-    }).on('change', _path => {
-      if(watchers['featured']['updating'])
-        setTimeout(()=> watchers['featured']['updating'] = false, 100)
-      else
-        BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('refresh', null, stores['featured'].get('featured'), null);
-        })
-    }),
-    'updating': false
-  },
-}
-
-let mainWindow;
-
-function deepMerge(target: object, source: object): object {
+function deepMerge(target: any, source: any): any {
   if (typeof target !== 'object' || target === null || typeof source !== 'object' || source === null)
     return source;
-
   for (const key in source) {
-    if (source.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
       if (typeof source[key] === 'object' && source[key] !== null) {
         if (!target[key]) target[key] = Array.isArray(source[key]) ? [] : {}
         deepMerge(target[key], source[key])
@@ -245,7 +237,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow!.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -259,10 +251,55 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  // Гарантированная доставка deeplink после загрузки UI
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingDeepLink) {
+      mainWindow!.webContents.send('deeplink', pendingDeepLink)
+      pendingDeepLink = null
+    }
+  })
+}
+
+function registerProtocol() {
+  const scheme = 'berserknxt'
+  if (!is.dev) {
+    app.setAsDefaultProtocolClient(scheme)
+    return
+  }
+  if (process.platform === 'win32') {
+    const exe = process.execPath
+    const exeArgs = [path.resolve(process.argv[1] || '')].filter(Boolean)
+    app.setAsDefaultProtocolClient(scheme, exe, exeArgs)
+  } else {
+    app.setAsDefaultProtocolClient(scheme)
+  }
+}
+
+// macOS: ловим deep-link ещё до ready, иначе событие теряется при холодном старте
+if (process.platform === 'darwin') {
+  app.on('will-finish-launching', () => {
+    app.on('open-url', (event, url) => {
+      event.preventDefault()
+      handleDeepLink(url)
+    })
+  })
+}
+
+const gotLock = app.requestSingleInstanceLock()
+
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const urlArg = argv.find(a => typeof a === 'string' && a.startsWith('berserknxt://'))
+    if (urlArg) handleDeepLink(urlArg)
+  })
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.electron')
+  // Важно: AppUserModelID должен совпадать с build.appId (electron-builder)
+  electronApp.setAppUserModelId('ru.berserknxt.app')
+  registerProtocol()
 
   optimizer;
   app.on('browser-window-created', (_, window) => {
@@ -278,13 +315,25 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.on('get-data', (event, key) => {
-    let value = stores[key].get(key)
+    if (key === 'settings') {
+      event.returnValue = stores.settings.get()
+      return
+    }
+    const s = (stores as any)[key]
+    const value = s?.get?.() ?? null
     event.returnValue = value
   })
 
   ipcMain.on('set-data', (event, key, value) => {
-    if(key in watchers) watchers[key]['updating'] = true;
-    stores[key].set(key, value)
+    if (key === 'settings') {
+      stores.settings.setQueued(value)
+      event.returnValue = null
+      return
+    }
+    const s = (stores as any)[key]
+    if (s?.setQueued) {
+      s.setQueued(value)
+    }
     event.returnValue = null
   })
 
@@ -299,7 +348,15 @@ app.whenReady().then(async () => {
     event.returnValue = null
   })
 
+  function isAllowedDeckUrl(u: string) {
+    try {
+      const x = new URL(u)
+      return x.protocol === 'https:' && (x.hostname === 'proberserk.ru' || x.hostname === 'pro.berserk-nxt.ru')
+    } catch { return false }
+  }
+
   ipcMain.handle('download-deck', async (_event, url) => {
+    if (!isAllowedDeckUrl(url)) throw new Error('Blocked URL')
     const response = await axios.get(url)
     return response.data
   })
@@ -360,7 +417,8 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.on('get-haspredictor', (event) => {
-    event.returnValue = !!deck_predictor.session
+    // @ts-ignore
+    event.returnValue = !!(deck_predictor as any).session
   })
 
   ipcMain.handle('predict-card', async (_event, deck, pool) => {
@@ -381,6 +439,16 @@ app.whenReady().then(async () => {
     }
   })
 
+  ipcMain.on('get-deeplink', (event) => {
+    event.returnValue = pendingDeepLink || ""
+    pendingDeepLink = null
+  })
+
+  if (process.platform === 'win32') {
+    const urlArg = process.argv.find(a => typeof a === 'string' && a.startsWith('berserknxt://'))
+    if (urlArg) pendingDeepLink = urlArg
+  }
+
   createWindow()
   try {
     await deck_predictor.init(join(resources_path, 'deck_predictor.onnx'))
@@ -399,7 +467,6 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-
 })
 
 autoUpdater.on('update-downloaded', () => {
@@ -412,21 +479,28 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('quit', () => {
-  Object.keys(watchers).forEach(key => watchers[key]['watchers'].close())
+app.on('quit', async () => {
+  try { await (stores.cards as SafeStore).close() } catch {}
+  try { await (stores.decks as SafeStore).close() } catch {}
+  try { await (stores.featured as SafeStore).close() } catch {}
+  try { await (stores.settings as SafeStore).close() } catch {}
 })
+
+// ==============================
+// Меню
+// ==============================
 
 let submenuTemplate : MenuItemConstructorOptions[] = [
   { label: 'Перезагрузить приложение', role: 'reload' },
   { label: 'Открыть DevTools', role: 'toggleDevTools' },
   { type: 'separator' },
   { label: 'Указать путь к настройкам', click: selectFolder },
-  { label: 'Посмотреть резервные копии', click: () => { shell.openPath(settings_path || dirname(settings_store.path))} },
+  { label: 'Посмотреть резервные копии', click: () => { shell.openPath(settings_path || dirname(stores.settings.path))} },
   { label: 'Сбросить настройки', click: resetSettings },
 ]
 
 submenuTemplate.push({ type: 'separator' })
-let testingModeItem = { label: 'Перейти в режим тестирования', click: enableAddon }
+let testingModeItem: any = { label: 'Перейти в режим тестирования', click: enableAddon }
 submenuTemplate.push(testingModeItem)
 submenuTemplate.push({ label: 'Добавить тестовые данные', click: patchAddon })
 addon_names.map(name => {
@@ -447,60 +521,11 @@ if (process.platform === 'darwin') {
   });
 }
 
-//else
-//menuTemplate.push({
-//  label: "Тестирование",
-//  submenu: [
-//    { label: 'Обновить приложение', role: 'reload' },
-//    { label: 'Открыть DevTools', role: 'toggleDevTools' },
-//    { type: 'separator' },
-//    { label: 'Выход', role: 'quit' }
-//  ]
-//});
-
-/* menuTemplate.push({
-  label: 'Коллекция',
-  submenu: [
-    { label: 'Новая коллекция...', click: resetCollection },
-    { label: 'Загрузить коллекцию...', click: () => { loadCollection('Открыть коллекцию', true, false); } },
-    { label: 'Сохранить как...', click: () => { saveCollection(false) } },
-    { label: 'Экспорт', submenu: [
-      {label: 'ProBerserk', click: () => { exportCollection('proberserk', ['txt']) }},
-      {label: 'LastSticker', click: () => { exportCollection('laststicker', ['txt']) }},
-      ]},
-    { type: 'separator' },
-    { label: 'Добавить в коллекцию', click:  () => { loadCollection('Добавить в коллекцию', false, false); }  },
-    { label: 'Убрать из коллекции', click:  () => { loadCollection('Убрать из коллекции', false, true); }  },
-    { label: 'Импорт', submenu: [
-      //{label: 'LastSticker', click: () => { importCollection('laststicker', ['txt']) }},
-      {label: 'ProBerserk', click: () => { importCollection('proberserk', ['txt','htm','html']) }},
-      ]},
-    { type: 'separator' },
-    { label: 'Очистить избранное...', click: resetSelected },
-    { label: 'Сохранить избранное', click: () => { saveCollection(true) } },
-    { label: 'Экспорт избранного', submenu: [
-      {label: 'ProBerserk', click: () => { exportCollection('proberserk', ['txt'], true) }},
-      ]},
-    ]
-});
-
-if(process.platform === 'darwin')
-  menuTemplate.push({
-    label: 'Правка',
-    role: 'editMenu'
-  }, {
-    label: 'Помощь',
-    submenu: [
-      { label: 'Отобразить подсказку', click: runHelp },
-    ]
-  });
-else
-  menuTemplate.push({
-    label: 'Помощь', click: runHelp
-  });
- */
-
 Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
+
+// ==============================
+// Операции с данными / файлами
+// ==============================
 
 function resetCollection() {
   const options : MessageBoxOptions = {
@@ -513,7 +538,7 @@ function resetCollection() {
       Не забудьте сохранить текущую коллекцию, если ещё не сделали этого.',
   };
 
-  dialog.showMessageBox(mainWindow, options as MessageBoxOptions).then(result => {
+  dialog.showMessageBox(mainWindow!, options as MessageBoxOptions).then(result => {
     if (result.response === 0) {
       BrowserWindow.getAllWindows().forEach(win => {
         win.webContents.send('refresh', {}, null);
@@ -534,10 +559,10 @@ function resetSelected() {
     detail: 'Данное действие очистит выбор избранных коллекции, это действие необратимо.',
   };
 
-  dialog.showMessageBox(mainWindow, options as MessageBoxOptions).then(result => {
+  dialog.showMessageBox(mainWindow!, options as MessageBoxOptions).then(result => {
     if (result.response === 0) {
       BrowserWindow.getAllWindows().forEach(win => {
-        win.webContents.send('refresh', stores['cards'].get("cards"), {"": []});
+        win.webContents.send('refresh', stores.cards.get(), {"": []});
       });
     }
   }).catch(err => {
@@ -546,9 +571,10 @@ function resetSelected() {
 }
 
 function saveCollection(selectedOnly = false) {
-  const selected = stores['featured'].get("featured")[""] || [];
-  if(selectedOnly && selected.size == 0) return;
-  let result = writeCollection(stores['cards'].get("cards"), selectedOnly, selected)
+  const featured = (stores.featured.get() as any) || {}
+  const selected = featured[""] || [];
+  if(selectedOnly && (selected as any).size == 0) return;
+  let result = writeCollection(stores.cards.get(), selectedOnly, selected)
 
   dialog.showSaveDialog({
     title: 'Сохранить коллекцию',
@@ -582,12 +608,12 @@ function loadCollection(text, reset, minus) {
           return;
         }
 
-        const result = readCollection(data, reset ? {} : (stores['cards'].get("cards") || {}), minus);
+        const result = readCollection(data, reset ? {} : (stores.cards.get() || {}), minus);
 
         Object.keys(result).forEach(key => {
-          const counts = result[key].count;
-          if (counts[""] === 0 && Object.values(counts).every(value => value === 0)) {
-            delete result[key];
+          const counts = (result as any)[key].count;
+          if (counts[""] === 0 && Object.values(counts).every((value: any) => value === 0)) {
+            delete (result as any)[key];
           }
         });
 
@@ -601,12 +627,10 @@ function loadCollection(text, reset, minus) {
   });
 }
 
-
 function exportCollection(format, ext, selectedOnly = false) {
-  const featured = stores['featured'].get("featured")
-  console.log(featured)
+  const featured = stores.featured.get() as any
   const selected = featured ? (featured[""] || []) : [];
-  if(selectedOnly && selected.size == 0) return;
+  if(selectedOnly && (selected as any).size == 0) return;
 
   dialog.showSaveDialog({
     title: 'Экспортировать коллекцию',
@@ -618,9 +642,9 @@ function exportCollection(format, ext, selectedOnly = false) {
   }).then(file => {
     if (!file.canceled) {
       let content = "",
-      card_count : {[key: string]: {count: {[key : string]: number}}} = stores['cards'].get('cards')
+      card_count : {[key: string]: {count: {[key : string]: number}}} = stores.cards.get()
       if(format == 'laststicker'){
-        let sets = {}, ret : string[] = [];
+        let sets: any = {}, ret : string[] = [];
         Object.entries(card_count).forEach(([id, {count}]) => {
           const setId : number = Math.round((parseInt(id))/1000 ) / 10;
           if (!sets[setId] && count[""] > 0) sets[setId] = [];
@@ -634,11 +658,11 @@ function exportCollection(format, ext, selectedOnly = false) {
         });
         content = ret.join("\n\n");
       } else if(format == 'proberserk') {
-        const names = card_data.reduce((acc, {id, name, alt}) => { if(alt == "") acc[id] = name; return acc }, {})
+        const names = (card_data as any[]).reduce((acc: any, {id, name, alt}) => { if(alt == "") acc[id] = name; return acc }, {})
         let ret : string[] = [];
         Object.entries(card_count).forEach(([id, {count}]) => {
           const total = Object.values(count).reduce((sum, quantity) => sum + quantity, 0);
-          if(names[id] && (!selectedOnly || selected.includes(id)))
+          if(names[id] && (!selectedOnly || (selected as any).includes(id)))
             ret.push(`${total} ${names[id].replace('ё','е').replace('Ё','Е')}`);
         });
         content = ret.join("\n");
@@ -651,50 +675,6 @@ function exportCollection(format, ext, selectedOnly = false) {
     console.log(err);
   });
 }
-
-//function importCollection(format, ext) {
-//  dialog.showOpenDialog({
-//    title: 'Импортировать в коллекцию',
-//    properties: ['openFile'],
-//    filters: [
-//      { name: 'Текстовые файлы', extensions: ext }
-//    ]
-//  }).then(file => {
-//    if (!file.canceled && file.filePaths.length > 0) {
-//      fs.readFile(file.filePaths[0], 'utf-8', (err, data) => {
-//        if (err) {
-//          console.error('Ошибка чтения файла', err);
-//          return;
-//        }
-//
-//        let result;
-//        if (format === 'proberserk') {
-//          const names = card_data.reduce((acc, {id, name, alt}) => { if(alt == "") acc[name.toLowerCase().replace('ё','е')] = id; return acc }, {});
-//          result = data.split('\n').reduce((acc, line) => {
-//            if(line[0] == "#") return;
-//            const [total, ...name] = line.trim().replace('<br>','').toLowerCase().replace('ё','е').split(' ');
-//            const id = names[name.join(' ')];
-//            if (!id) return acc;
-//            if (!acc[id]) acc[id] = { count: {"": 0} };
-//            acc[id].count[''] += parseInt(total, 10);
-//            return acc;
-//          }, stores['cards'].get("cards") || {});
-//
-//        } else {
-//          console.error('Неизвестный формат файла');
-//          return;
-//        }
-//
-//        stores['cards'].set("cards", result);
-//        BrowserWindow.getAllWindows().forEach(win => {
-//          win.webContents.send('refresh', result, null);
-//        });
-//      });
-//    }
-//  }).catch(err => {
-//    console.error(err);
-//  });
-//}
 
 function runHelp(){
   BrowserWindow.getAllWindows().forEach(win => {
@@ -793,7 +773,7 @@ function importDeck() {
         const [deckName, result] = filePath.endsWith('.json') ? readTTS(card_data, data_str) : readDeck(card_data, data_str);
         if (result.length > 0) {
           BrowserWindow.getAllWindows().forEach(win => {
-            win.webContents.send('new-deck', { id: v4(), name: deckName || deckFileName, cards: result, date: Date.now(), tags: ['Импорт'] });
+            win.webContents.send('new-deck', { id: v4(), name: (deckName as any) || deckFileName, cards: result, date: Date.now(), tags: ['Импорт'] });
           });
         }
       }
@@ -803,25 +783,23 @@ function importDeck() {
   });
 }
 
-
-
 function exportDeckTTS(deck, name, deck_type = 'Констрактед', full_deck=null, sign_key=null) {
   const platform = os.platform();
-  let path = app.getPath('downloads')
+  let pathsave = app.getPath('downloads')
   if (platform === 'darwin') {
     const ttspath = join(app.getPath('home'), 'Library/Tabletop Simulator/Saves/Saved Objects');
-    if(fs.pathExistsSync(ttspath)) path = ttspath;
+    if(fs.pathExistsSync(ttspath)) pathsave = ttspath;
   } else if (platform === 'win32') {
     const ttspath = join(app.getPath('documents'), 'My Games\\Tabletop Simulator\\Saves\\Saved Objects');
-    if(fs.pathExistsSync(ttspath)) path = ttspath;
+    if(fs.pathExistsSync(ttspath)) pathsave = ttspath;
   } else if (platform === 'linux') {
     const ttspath = join(app.getPath('home'), '.steam/steam/steamapps/common/Tabletop Simulator/Tabletop Simulator_Data/Saved Objects');
-    if(fs.pathExistsSync(ttspath)) path = ttspath;
+    if(fs.pathExistsSync(ttspath)) pathsave = ttspath;
   }
 
   dialog.showSaveDialog({
     title: 'Сохранить колоду',
-    defaultPath: join(path, name + '.json'),
+    defaultPath: join(pathsave, name + '.json'),
     buttonLabel: 'Сохранить',
     filters: [
         { name: 'Файл экспорта TTS', extensions: ['json'] }
@@ -842,21 +820,27 @@ function exportDeckTTS(deck, name, deck_type = 'Констрактед', full_de
 function selectFolder() {
   dialog.showOpenDialog({
     title: 'Выберите папку',
-    defaultPath: settings_store.path,
+    defaultPath: stores.settings.path,
     properties: ['openDirectory', 'createDirectory']
-  }).then(result => {
+  }).then(async result => {
     if (result.canceled) {
       console.log('Выбор папки отменён пользователем.');
     } else {
       try {
-        if(!fs.existsSync(join(result.filePaths[0], 'user_cards.json')))
-          fs.copyFileSync(stores['cards'].path, join(result.filePaths[0], 'user_cards.json'))
-        if(!fs.existsSync(join(result.filePaths[0], 'user_decks.json')))
-          fs.copyFileSync(stores['decks'].path, join(result.filePaths[0], 'user_decks.json'))
-        if(!fs.existsSync(join(result.filePaths[0], 'featured.json')))
-          fs.copyFileSync(stores['featured'].path, join(result.filePaths[0], 'featured.json'))
-        settings_store.set('settings.settings_path', result.filePaths[0]);
-        console.log('Выбранная папка:', result.filePaths[0]);
+        const dest = result.filePaths[0]
+        if(!fs.existsSync(join(dest, 'user_cards.json')))
+          fs.copyFileSync(stores.cards.path, join(dest, 'user_cards.json'))
+        if(!fs.existsSync(join(dest, 'user_decks.json')))
+          fs.copyFileSync(stores.decks.path, join(dest, 'user_decks.json'))
+        if(!fs.existsSync(join(dest, 'featured.json')))
+          fs.copyFileSync(stores.featured.path, join(dest, 'featured.json'))
+
+        await stores.settings.updateQueued((cur: any) => {
+          const next = { ...(cur || {}) }
+          next.settings_path = dest
+          return next
+        })
+        console.log('Выбранная папка:', dest);
         app.relaunch();
         app.quit();
       } catch (e) {
@@ -868,7 +852,7 @@ function selectFolder() {
   });
 }
 
-function createArchive(sourceDir) {
+function createArchive(sourceDir: string) {
   fs.readdir(sourceDir, (err, files) => {
     if (err) {
       console.error('Ошибка при чтении директории:', err);
@@ -893,7 +877,7 @@ function createArchive(sourceDir) {
     })
   });
 }
-function manageArchives(archivesDir) {
+function manageArchives(archivesDir: string) {
   fs.readdir(archivesDir, (err, files) => {
     if (err) throw err;
 
@@ -912,11 +896,10 @@ function manageArchives(archivesDir) {
   });
 }
 
-
 function enableAddon(): void {
   addon_names.forEach(addon_name => {
     const data_addon = JSON.parse(fs.readFileSync(join(resources_path, addon_name), 'utf8'))
-    if(data_addon['cards']) card_data = card_data.concat(data_addon['cards'])
+    if(data_addon['cards']) card_data = (card_data as any).concat(data_addon['cards'])
     if(data_addon['const']) deepMerge(card_const, data_addon['const'])
   })
 
@@ -1011,32 +994,16 @@ function printDeckLists(data) {
     show: true,
   })
 
-  const path = join(os.tmpdir(), 'nxt-print-list.html')
-  fs.writeFileSync(path, data, 'utf-8');
-  swindow.loadURL(`file://${path}`);
+  const pathTmp = join(os.tmpdir(), 'nxt-print-list.html')
+  fs.writeFileSync(pathTmp, data, 'utf-8');
+  swindow.loadURL(`file://${pathTmp}`);
   swindow.webContents.on('dom-ready', () => {
     swindow.webContents.print({}, (success, errorType) => {
       swindow.close();
       if (!success) console.log(errorType);
     });
   });
-
-  // dialog.showSaveDialog({
-  //   title: 'Сохранить деклист',
-  //   defaultPath: app.getPath('downloads'),
-  //   buttonLabel: 'Сохранить',
-  //   filters: [
-  //     { name: 'HTML для печати', extensions: ['html'] }
-  //   ]
-  // }).then(file => {
-  //   if (!file.canceled && file.filePath) {
-  //     fs.writeFileSync(file.filePath.toString(), data, 'utf-8');
-  //   }
-  // }).catch(err => {
-  //   console.log(err);
-  // });
 }
-
 
 function resetSettings() {
   const response = dialog.showMessageBoxSync({
@@ -1049,10 +1016,15 @@ function resetSettings() {
   })
 
   if (response === 1) {
-    const last_draft_key = settings_store.get('settings.draft_options.last_draft_key')
-    settings_store.set('settings', default_settings)
-    settings_store.set('settings.draft_options.last_draft_key', last_draft_key)
-    app.relaunch()
-    app.quit()
+    const cur = stores.settings.get() || {}
+    const last_draft_key = cur?.draft_options?.last_draft_key
+    const next = { ...default_settings }
+    if (last_draft_key !== undefined) {
+      next.draft_options = { ...(next.draft_options || {}), last_draft_key }
+    }
+    stores.settings.setQueued(next).then(() => {
+      app.relaunch()
+      app.quit()
+    })
   }
 }
