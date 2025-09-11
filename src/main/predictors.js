@@ -2,7 +2,7 @@ try {
     var ort = require('onnxruntime-node');
 } catch (err) { }
 
-const EXCEPT_SETS = new Set([10, 22, 51, 60])
+const EXCEPT_SETS = new Set([10, 20, 22, 51])
 
 export class DeckRecommender {
   constructor(card_data) {

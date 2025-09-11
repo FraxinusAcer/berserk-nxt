@@ -96,6 +96,7 @@ function dispatch(event, eventType, node) {
 export function shortcuts(node, options = {}) {
   let mc
   let isHovered = false
+  let start = null
 
   const handleKeyDown = (event) => {
     if (options.hovered === true && !isHovered) return true
@@ -122,7 +123,10 @@ export function shortcuts(node, options = {}) {
   }
 
   const handleMouseClick = (event) => {
-    dispatch(event, 'click', node)
+    const DRAG_THRESHOLD = (event.pointerType === 'touch' || event.pointerType === 'pen') ? 24 : 8
+    const dx = event.clientX - (start ? start.x : event.clientX)
+    const dy = event.clientY - (start ? start.y : event.clientY)
+    if(Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) dispatch(event, 'click', node)
   }
 
   const handleMouseLongPress = (event) => {
@@ -133,6 +137,7 @@ export function shortcuts(node, options = {}) {
   }
 
   const handleMouseDown = (event) => {
+    start = { x: event.clientX, y: event.clientY }
     let eventType = [null, 'middleclick', 'rightclick'][event.button]
     if (eventType) {
       dispatch(event, eventType, node)

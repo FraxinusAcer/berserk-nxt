@@ -1,5 +1,5 @@
-const CODE_CACHE_NAME = 'code-cache-v6.3.1';
-const CARDS_CACHE_NAME = 'cards-cache-v6.3.0';
+const CODE_CACHE_NAME = 'code-cache-v6.3.4';
+const CARDS_CACHE_NAME = 'cards-cache-v6.3.1';
 
 self.addEventListener('activate', event => {
   event.waitUntil(

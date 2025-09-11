@@ -44,6 +44,7 @@ var draggable = (node, options = {}) => {
   recomputeBounds = { ...DEFAULT_RECOMPUTE_BOUNDS, ...recomputeBounds };
   const bodyStyle = document.body.style;
   const nodeClassList = node.classList;
+
   function setTranslate(xPos = translateX, yPos = translateY) {
     if (!transform) {
       if (legacyTranslate) {
@@ -61,6 +62,7 @@ var draggable = (node, options = {}) => {
       setStyle(node, "transform", transformCalled);
     }
   }
+
   const getEventData = () => ({
     offsetX: translateX,
     offsetY: translateY,
@@ -81,24 +83,24 @@ var draggable = (node, options = {}) => {
   function fireSvelteDragEvent() {
     callEvent("neodrag", onDrag);
   }
+
   const listen = addEventListener;
   listen("pointerdown", dragStart, false);
   listen("pointerup", dragEnd, false);
   listen("pointermove", drag, false);
   setStyle(node, "touch-action", "none");
+
   const calculateInverseScale = () => {
     let inverseScale = node.offsetWidth / nodeRect.width;
     if (isNaN(inverseScale))
       inverseScale = 1;
     return inverseScale;
   };
+
   function dragStart(e) {
-    if (disabled)
-      return;
-    if (e.button === 2)
-      return;
-    if (ignoreMultitouch && !e.isPrimary)
-      return;
+    if (disabled) return;
+    if (e.button === 2) return;
+    if (ignoreMultitouch && !e.isPrimary) return;
     if (recomputeBounds.dragStart)
       computedBounds = computeBoundRect(bounds, node);
     if (isString(handle) && isString(cancel) && handle === cancel)
@@ -120,14 +122,14 @@ var draggable = (node, options = {}) => {
     if (dragEls.some((el) => el.contains(eventTarget) || el.shadowRoot?.contains(eventTarget)) && !cancelElementContains(cancelEls, [eventTarget])) {
       currentlyDraggedEl = dragEls.length === 1 ? node : dragEls.find((el) => el.contains(eventTarget));
       active = true;
-    } else
-      return;
+    } else return;
+
     nodeRect = node.getBoundingClientRect();
     if (applyUserSelectHack) {
       bodyOriginalUserSelectVal = bodyStyle.userSelect;
       bodyStyle.userSelect = "none";
     }
-    fireSvelteDragStartEvent();
+    // ВАЖНО: не вызываем fireSvelteDragStartEvent здесь — старт дадим после порога
     const { clientX, clientY } = e;
     const inverseScale = calculateInverseScale();
     if (canMoveInX)
@@ -139,38 +141,55 @@ var draggable = (node, options = {}) => {
       clientToNodeOffsetY = clientY - nodeRect.top;
     }
   }
+
   function dragEnd(e) {
-    if (!active)
-      return;
+    if (!active) return;
     if (recomputeBounds.dragEnd)
       computedBounds = computeBoundRect(bounds, node);
-    nodeClassList.remove(defaultClassDragging);
-    nodeClassList.add(defaultClassDragged);
+
+    // Завершаем drag-визуал только если реальный drag состоялся (порог пройден)
+    if (start.out) {
+      nodeClassList.remove(defaultClassDragging);
+      nodeClassList.add(defaultClassDragged);
+    }
     if (applyUserSelectHack)
       bodyStyle.userSelect = bodyOriginalUserSelectVal;
-    fireSvelteDragEndEvent();
-    if (canMoveInX)
-      initialX = translateX;
-    if (canMoveInY)
-      initialY = translateY;
+
+    if (start.out) fireSvelteDragEndEvent();
+
+    if (canMoveInX) initialX = translateX;
+    if (canMoveInY) initialY = translateY;
     active = false;
-    if(!start.out)
-      e.target.dispatchEvent(new MouseEvent("click", {...e, bubbles: true}));
+
+    // Если порог не был пройден — это клик
+    if (!start.out)
+      e.target.dispatchEvent(new MouseEvent("click", { ...e, bubbles: true }));
   }
+
   function drag(e) {
-    if (!active)
-      return;
+    if (!active) return;
     if (recomputeBounds.drag)
       computedBounds = computeBoundRect(bounds, node);
+
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    if(Math.sqrt(dx * dx + dy * dy) >= 5) start.out = true;
-    
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const DRAG_THRESHOLD = (e.pointerType === 'touch' || e.pointerType === 'pen') ? 24 : 8;
+    if (!start.out && dist >= DRAG_THRESHOLD) {
+      start.out = true;
+      fireSvelteDragStartEvent();
+    }
+    // Пока порог не достигнут — ничего не двигаем и не шлём события
+    if (!start.out) return;
+
     nodeClassList.add(defaultClassDragging);
     e.preventDefault();
+
     nodeRect = node.getBoundingClientRect();
     let finalX = e.clientX, finalY = e.clientY;
     const inverseScale = calculateInverseScale();
+
     if (computedBounds) {
       const virtualClientBounds = {
         left: computedBounds.left + clientToNodeOffsetX,
@@ -181,6 +200,7 @@ var draggable = (node, options = {}) => {
       finalX = clamp(finalX, virtualClientBounds.left, virtualClientBounds.right);
       finalY = clamp(finalY, virtualClientBounds.top, virtualClientBounds.bottom);
     }
+
     if (Array.isArray(grid)) {
       let [xSnap, ySnap] = grid;
       if (isNaN(+xSnap) || xSnap < 0)
@@ -192,15 +212,18 @@ var draggable = (node, options = {}) => {
       finalX = initialX + deltaX;
       finalY = initialY + deltaY;
     }
+
     if (canMoveInX)
       translateX = Math.round((finalX - initialX) * inverseScale);
     if (canMoveInY)
       translateY = Math.round((finalY - initialY) * inverseScale);
+
     xOffset = translateX;
     yOffset = translateY;
     fireSvelteDragEvent();
     setTranslate();
   }
+
   return {
     destroy: () => {
       const unlisten = removeEventListener;
@@ -237,6 +260,7 @@ var draggable = (node, options = {}) => {
     }
   };
 };
+
 var clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 var isString = (val) => typeof val === "string";
 var snapToGrid = ([xSnap, ySnap], pendingX, pendingY) => {

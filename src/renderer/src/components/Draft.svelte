@@ -458,6 +458,17 @@
     return null
   }
 
+  function boosterCardDragUpdate(drag_index, index) {
+    draft.update((draft) => {
+      const [booster, ...other] = draft.boosters
+      const new_booster = [...booster]
+      const element = new_booster.splice(drag_index, 1)[0]
+      new_booster.splice(index, 0, element)
+
+      return { ...draft, boosters: [new_booster, ...other] }
+    })
+  }
+
   function deckCardDragUpdate(drag_index, index) {
     const new_own_cards = [...visible_deck]
     const element = new_own_cards.splice(drag_index, 1)[0]
@@ -521,7 +532,8 @@
       && $draft.step === 0
       && ($draft.show_score !== '3' || (valid_draft_key && $draft.new_draft_key === $draft.draft_key))
 
-
+  let current_booster = $draft.boosters[0]
+  $: current_booster = $draft.boosters && $draft.boosters.length > 0 ? $draft.boosters[0] : []
 </script>
 
 {#if $draft.step <= 3}
@@ -817,6 +829,7 @@
         <div
           style="display: flex; justify-content: space-between; width: 100%; margin-top: 10px;"
         >
+          {#if $draft.show_score !== '3'}
           <button
             style="width: 100%;"
             disabled={visible_deck.length === 0}
@@ -826,6 +839,8 @@
           >
           <button
             class="outline"
+            aria-label="Сохранить в TTS"
+            title="Сохранить в TTS"
             style="padding: 5px; height: 45px;  margin-left: 10px;"
             disabled={visible_deck.length === 0}
             on:click={() => {
@@ -855,8 +870,26 @@
               /></svg
             >
           </button>
+          {:else}
+          <button
+            style="width: 100%;"
+            disabled={visible_deck.length === 0}
+            on:click={() => {
+              window.electron.ipcRenderer.send(
+                'save-deck',
+                byId(visible_deck),
+                getDeckName(),
+                'tts',
+                'Драфт',
+                byId($draft.last_full_draft),
+                $draft.draft_key
+              )
+            }}>Сохранить в TTS</button>
+          {/if}
           <button
             class="outline"
+            aria-label="Сохранить в JPG"
+            title="Сохранить в JPG"
             style="padding: 5px; height: 45px;  margin-left: 10px;"
             disabled={visible_deck.length === 0}
             on:click={(e) => {
@@ -914,13 +947,15 @@
 >
   {#if $draft.step === 4}
     <section
-      class="card-grid"
+      class={`card-grid ${$draft.show_score !== '1' ? '' : 'top-text-visible'}`}
       style={`--card-min-size: ${$draft.cardSize.booster}px;`}
       use:shortcuts
       on:action:zoomin={() => changeCardSize(draft, 'booster')}
       on:action:zoomout={() => changeCardSize(draft, 'booster', -10)}
     >
-      {#each byId($draft.boosters[0]) as card, index (index)}
+      {#key current_booster}
+      {#each byId(current_booster) as card, index (index)}
+      <div use:sortable={{ update: boosterCardDragUpdate }}>
         <Card
           {card}
           showTopText={pickHint(card)}
@@ -930,9 +965,11 @@
           showAlts={false}
           dimAbsent={false}
           showBan={false}
-          card_list={$draft.boosters[0]}
+          card_list={current_booster}
         />
+      </div>
       {/each}
+      {/key}
     </section>
     <hr />
   {/if}
@@ -940,7 +977,7 @@
   {#key visible_deck}
     <section
       id="own-cards"
-      class="card-grid"
+      class={`card-grid ${$draft.show_score !== '1' ? '' : 'top-text-visible'}`}
       style={`--card-min-size: ${$draft.step === 4 ? $draft.cardSize.draftdeck : $draft.cardSize.deck}px`}
       use:shortcuts
       on:action:zoomin={() => changeCardSize(draft, $draft.step === 4 ? 'draftdeck' : 'deck')}

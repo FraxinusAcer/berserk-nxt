@@ -1,5 +1,4 @@
 import { app, shell, BrowserWindow, Menu, ipcMain, dialog, MessageBoxOptions, MenuItemConstructorOptions } from 'electron'
-const { autoUpdater } = require('electron-updater')
 import { join, dirname } from 'path'
 import { v4 } from 'uuid'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -44,7 +43,6 @@ const os = require('os')
 // STORES (SafeStore для всех 4-х)
 // ==============================
 
-// 1) settings — сначала, чтобы узнать settings_path для остальных
 const stores = {
   settings: new SafeStore<any>({
     name: 'user_settings',
@@ -52,55 +50,6 @@ const stores = {
     defaults: { settings: default_settings },
     serialize: is.dev ? (value) => JSON.stringify(value, null, ' ') : JSON.stringify,
     migrations: {
-      '0.5.5': (store) => store.clear(),
-      '0.6.6': (store) => {
-        const boosters = store.get("settings.draft_options.boosters_set") as any;
-        if(Array.isArray(boosters) && boosters.length == 4)
-          store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
-      },
-      '0.6.7': (store) => {
-        store.set("settings.deal_options", (default_settings as any)['deal_options'])
-      },
-      '0.7.3': (store) => {
-        if(!store.has("settings.deal_options.deck"))
-          store.set("settings.deal_options.deck", [])
-      },
-      '0.8.1': (store) => {
-        if(!store.has("settings.collection_options.icons")) store.set("settings.collection_options.icons", [])
-        if(!store.has("settings.deckbuilding_options.icons")) store.set("settings.deckbuilding_options.icons", [])
-      },
-      '1.2.10': (store) => {
-        store.set("settings.other_options", {})
-      },
-      '1.4.7': (store) => {
-        if(!store.has("settings.draft_options.last_boosters")) store.set("settings.draft_options.last_boosters", null)
-        if(!store.has("settings.draft_options.replay")) store.set("settings.draft_options.replay", false)
-      },
-      '1.5.0': (store) => {
-        store.set("settings.draft_options.last_boosters", [null,null,null,null])
-      },
-      '1.6.5': (store) => {
-        if(!store.has("settings.collection_options.ldb")) store.set("settings.collection_options.ldb", [])
-        if(!store.has("settings.deckbuilding_options.ldb")) store.set("settings.deckbuilding_options.ldb", [])
-      },
-      '1.6.7': (store) => {
-        store.set("settings.collection_options.ldb", [])
-        store.set("settings.deckbuilding_options.ldb", [])
-      },
-      '1.7.1': (store) => {
-        if(!store.has("settings.deckbuilding_options.useCardPool")) store.set("settings.deckbuilding_options.useCardPool", false)
-        if(!store.has("settings.deckbuilding_options.cardPoolName")) store.set("settings.deckbuilding_options.cardPoolName", "")
-        if(!store.has("settings.deckbuilding_options.cardPool")) store.set("settings.deckbuilding_options.cardPool", [])
-      },
-      '1.7.4': (store) => {
-        if(!store.has("settings.draft_options.their_cards")) store.set("settings.deckbuilding_options.their_cards", Array.from({ length: 16 }, () => []))
-        if(!store.has("settings.draft_options.look_at")) store.set("settings.deckbuilding_options.look_at", null)
-      },
-      '1.9.0': (store) => {
-        const boosters = store.get("settings.draft_options.boosters_set") as any;
-        if(Array.isArray(boosters) && boosters.length == 4)
-          store.set("settings.draft_options.boosters_set", [...boosters, "", ""])
-      },
       '5.0.9': (store) => {
         if(!store.has("settings.draft_options.user_uuid")) store.set("settings.draft_options.user_uuid", v4())
       },
@@ -288,7 +237,8 @@ if (process.platform === 'darwin') {
 const gotLock = app.requestSingleInstanceLock()
 
 if (!gotLock) {
-  app.quit()
+  console.log("Second instance")
+  if(!is.dev) app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {
     const urlArg = argv.find(a => typeof a === 'string' && a.startsWith('berserknxt://'))
@@ -457,21 +407,10 @@ app.whenReady().then(async () => {
     console.log("Error start predictors", e);
   }
 
-  try{
-    autoUpdater.setFeedURL({provider: 'generic', url: 'http://updates.berserk-nxt.ru/release/'});
-    autoUpdater.checkForUpdates();
-  } catch (e) {
-    console.log("Error check updates", e);
-  }
-
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
-
-autoUpdater.on('update-downloaded', () => {
-  autoUpdater.quitAndInstall();
-});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
