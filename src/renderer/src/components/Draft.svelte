@@ -43,6 +43,7 @@
   let draft = option_set[options_name]
   let other_options = option_set['other_options']
 
+  const isWeb = window.electron.ipcRenderer.sendSync('get-isweb')
   let deck_name = `${$draft.variant === 'draft' ? 'Драфт' : 'Силед'} от ${formatCurrentDate()}`
   let lock_click = false
   let chart_total = true
@@ -129,7 +130,7 @@
         return {
           ...draft,
           players: draft.show_score === '3' ? 8 : boosters.length,
-          method: draft.show_score === '3' ? 'motd' : draft.method,
+          method: draft.show_score === '3' ? 'motd2' : draft.method,
           draft_key: '',
           new_draft_key: '',
           last_draft_key: [draft.draft_key, ...draft.last_draft_key].slice(0,10),
@@ -157,10 +158,10 @@
     draft.update((draft) => {
       draft.current_booster = -1
       draft.last_draft_key = [draft.draft_key, ...draft.last_draft_key].slice(0,10)
-      if(draft.show_score === '3') {
+      if(draft.show_score === '3' && !isWeb) {
         if(draft.variant === 'siled') setSecondLevelMenu({ 'Начать новый': breakDraft })
         draft.players = 8
-        draft.method = 'motd'
+        draft.method = 'motd2'
         draft.draft_key = draft.new_draft_key.replaceAll('\n', '')
         rng = new Random(fnv1a(draft.draft_key || '0'))
       } else {
@@ -565,7 +566,7 @@
                 <option value="1">Обучение с ботами</option>
                 <option value="">Тренировка с ботами</option>
                 <option value="2">Турнир с ботами</option>
-                <option value="3">Турнир через Шарля де Лорма</option>
+                {#if !isWeb}<option value="3">Турнир через Шарля де Лорма</option>{/if}
                 <!-- option value="2">Он-лайн турнир</!option -->
               </select>
             </div>

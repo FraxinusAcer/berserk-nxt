@@ -155,7 +155,7 @@ function doMotdOrderedPick(booster, random = true) {
   })
   boosterWeights.sort((a, b) => a.weight - b.weight);
   const topCards = boosterWeights.slice(0, 3);
-  const rand = random ? Math.random() * 100 : 1;
+  const rand = random ? Math.random() * 100 : 0;
   if (rand < 80) {
     return topCards[0]?.index ?? 0;
   } else if (rand < 95) {

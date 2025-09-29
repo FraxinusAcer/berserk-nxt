@@ -305,5 +305,5 @@ window.electron.ipcRenderer.on('get-haspredictor', () => {
 })
 
 window.electron.ipcRenderer.on('get-version', () => {
-  return '6.3.4'
+  return '6.3.8'
 })
