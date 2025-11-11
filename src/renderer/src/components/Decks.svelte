@@ -61,8 +61,8 @@
     navigate('/app/deckbuilder')
   }
 
-  function removeDeck(deck_id, force = false){
-    if(force || confirm(`Вы уверены, что хотите удалить колоду «${$user_decks['decks'][deck_id].name}»?`)) {
+  async function removeDeck(deck_id, force = false){
+    if(force || (await window.electron.ipcRenderer.invoke('confirm-dialog', '', `Вы уверены, что хотите удалить колоду «${$user_decks['decks'][deck_id].name}»?`, ['Отмена', 'Да, удалить']) === 1)) {
       user_decks.update(($user_decks) => {
         $user_decks['decks'].splice(deck_id, 1)
         return {...$user_decks, decks: $user_decks['decks']};
@@ -195,7 +195,7 @@
               tags={deck.tags}
               list_index={index}
               onpreview={() => { togglePopup(deck, null, 'deck') }}
-              ondelete={() => { removeDeck(index) }}
+              ondelete={(event) => { removeDeck(index, event.shiftKey) }}
               onforcedelete={() => { removeDeck(index, true) }}
               showCornerText={deck.cards.length.toString()}
               showCornerColor={deck.cards.length !== 30 ? (deck.cards.length > 30 && deck.cards.length <= 50 ? '#FFBF00' : '#D93526') : null}

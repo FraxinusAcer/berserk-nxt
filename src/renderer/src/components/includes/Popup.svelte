@@ -72,12 +72,16 @@
   }
 
   function handleTagChange(event) {
-    const { value, checked } = event.target;
+    const { value, checked } = event.target
     user_decks.update($user_decks => {
       const new_deck = deck
-      if(!new_deck.tags) new_deck.tags = [];
+      if(!new_deck.tags) new_deck.tags = []
       if(checked) new_deck.tags.push(value)
       else new_deck.tags = new_deck.tags.filter(tag => tag !== value)
+      if(event.shiftKey){
+        new_deck.tags = [value]
+        event.target.checked = true;
+      }
       let decks = $user_decks['decks'].map((adeck) => {
         if(adeck.id === new_deck.id) return new_deck;
         return adeck;
@@ -245,7 +249,7 @@
       <section role="none" on:click|stopPropagation={() => {}}>
         <h3>{deck.name}</h3>
         <p style="margin: 1.3em 0 .5em">Теги:</p>
-        <fieldset on:change="{handleTagChange}">
+        <fieldset on:change="{handleTagChange}" on:click="{handleTagChange}">
         {#each $user_decks['tags'] as tag}
           <label>
             <input type="checkbox" name="color" value="{tag}" checked={(deck.tags || []).includes(tag)} /> {tag}

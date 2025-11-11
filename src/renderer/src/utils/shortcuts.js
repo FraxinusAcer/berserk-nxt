@@ -26,6 +26,8 @@ const config = {
   delete: 'action:delete',
   'ctrl+delete': 'action:forcedelete',
   'ctrl+backspace': 'action:forcedelete',
+  'shift+delete': 'action:forcedelete',
+  'shift+backspace': 'action:forcedelete',
   'ctrl+f': 'action:find',
   'ctrl+n': 'action:new',
   'ctrl+s': 'action:save',

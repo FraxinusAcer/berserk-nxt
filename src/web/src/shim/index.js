@@ -39,7 +39,7 @@ export const electron = {
           listeners.set(channel, channelListeners);
         }
         channelListeners.push(listener);
-        },
+      },
       sendSync(channel, ...args) {
         if (listeners.has(channel)) {
           const channelListeners = listeners.get(channel);
@@ -57,6 +57,10 @@ export const electron = {
             resolve(result);
           });
         },
+      invoke(channel, ...args) {
+        const result = this.sendSync(channel, ...args);
+        return Promise.resolve(result);
+      },
       removeAllListeners(channel = null) {
         if (channel) {
           listeners.delete(channel);
@@ -278,12 +282,15 @@ window.electron.ipcRenderer.on('load-collection', (result, reset, minus) => {
 })
 
 window.electron.ipcRenderer.on('print-decklists', (data) => {
-  console.log(data)
   let w = window.open()
   w.document.write(data)
   w.document.close()
   w.print()
   w.close()
+})
+
+window.electron.ipcRenderer.on('confirm-dialog', async (_title, message) => {
+  return window.confirm(message) ? 1 : 0
 })
 
 window.electron.ipcRenderer.on('save-draft', (_event, draft, name) => {
@@ -300,10 +307,6 @@ window.electron.ipcRenderer.on('get-isweb', () => {
   return true
 })
 
-window.electron.ipcRenderer.on('get-haspredictor', () => {
-  return false
-})
-
 window.electron.ipcRenderer.on('get-version', () => {
-  return '6.3.8'
+  return '6.4.4'
 })

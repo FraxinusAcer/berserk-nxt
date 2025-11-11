@@ -6,7 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import { default_settings } from '../renderer/src/stores/defaults.js'
 import { readCollection, writeCollection, readDeck, writeTTS, readTTS, readCompact } from '../renderer/src/utils/formats.js'
 import { installAddon, deinstallAddon } from './updater.js'
-import { DeckRecommender, DraftRecommender } from './predictors.js'
+import { DraftRecommender } from './predictors.js'
 import fs from 'fs-extra'
 import axios from 'axios'
 import { SafeStore } from './safe-store'
@@ -15,8 +15,7 @@ const resources_path = is.dev ? join(__dirname, '../../resources') : join(proces
 let card_data = JSON.parse(fs.readFileSync(join(resources_path, 'data.json'), 'utf8'))
 const card_const = JSON.parse(fs.readFileSync(join(resources_path, 'const.json'), 'utf8'))
 const feature_names = JSON.parse(fs.readFileSync(join(resources_path, 'features.json'), 'utf8'))
-const deck_predictor = new DeckRecommender(card_data),
-      draft_predictor = new DraftRecommender(card_data, feature_names)
+const draft_predictor = new DraftRecommender(card_data, feature_names)
 
 const addon_names : string[] = []
 fs.readdirSync(resources_path).filter(file => file.startsWith('addon') && file.endsWith('.json')).forEach(addon_name => {
@@ -69,6 +68,9 @@ const stores = {
         store.set("settings.other_options.screenshot_quality", 98)
         store.set("settings.other_options.collection_all_filters", false)
       },
+      '6.4.0': (store) => {
+        store.set("settings.draft_new_options", default_settings["draft_new_options"])
+      }
     }
   })
 } as any
@@ -366,18 +368,16 @@ app.whenReady().then(async () => {
     event.returnValue = false
   })
 
-  ipcMain.on('get-haspredictor', (event) => {
-    // @ts-ignore
-    event.returnValue = !!(deck_predictor as any).session
-  })
-
-  ipcMain.handle('predict-card', async (_event, deck, pool) => {
-    try {
-      return await deck_predictor.predict(deck, 5, pool)
-    } catch (e) {
-      console.log("Error start deck_predictor", e);
-      return null
-    }
+  ipcMain.handle('confirm-dialog', async (_event, title, message, buttons = ["Отменить", "Да"]) => {
+    const response = await dialog.showMessageBox({
+      type: 'question',
+      buttons: buttons,
+      defaultId: 0,
+      cancelId: 0,
+      title: title,
+      message: message
+    })
+    return response.response
   })
 
   ipcMain.handle('predict-pick', async (_event, deck, choices) => {
@@ -387,6 +387,11 @@ app.whenReady().then(async () => {
       console.log("Error start deck_predictor", e);
       return null
     }
+  })
+
+  ipcMain.on('get-haspredictor', (event) => {
+    // @ts-ignore
+    event.returnValue = !!(draft_predictor as any).session
   })
 
   ipcMain.on('get-deeplink', (event) => {
@@ -401,7 +406,6 @@ app.whenReady().then(async () => {
 
   createWindow()
   try {
-    await deck_predictor.init(join(resources_path, 'deck_predictor.onnx'))
     await draft_predictor.init(join(resources_path, 'draft_predictor.onnx'))
   } catch (e) {
     console.log("Error start predictors", e);
@@ -680,25 +684,29 @@ function importDeck() {
       default_save_path = dirname(filePath);
 
       if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
-        const image = jpeg.decode(data);
-        const width = 600;
-        const height = 600;
-        const startX = 0;
-        const startY = image.height - height;
-        const qrData = new Uint8ClampedArray(width * height * 4);
-        let idx = 0;
+        let code
+        for (let size of [900, 600, 300, 150, 100]) {
+          const image = jpeg.decode(data);
+          const width = size;
+          const height = size;
+          const startX = 0;
+          const startY = image.height - height;
+          const qrData = new Uint8ClampedArray(width * height * 4);
+          let idx = 0;
 
-        for (let y = startY; y < startY + height; y++) {
-          for (let x = startX; x < startX + width; x++) {
-            const pixelIdx = (image.width * y + x) * 4;
-            qrData[idx++] = image.data[pixelIdx];
-            qrData[idx++] = image.data[pixelIdx + 1];
-            qrData[idx++] = image.data[pixelIdx + 2];
-            qrData[idx++] = image.data[pixelIdx + 3];
+          for (let y = startY; y < startY + height; y++) {
+            for (let x = startX; x < startX + width; x++) {
+              const pixelIdx = (image.width * y + x) * 4;
+              qrData[idx++] = image.data[pixelIdx];
+              qrData[idx++] = image.data[pixelIdx + 1];
+              qrData[idx++] = image.data[pixelIdx + 2];
+              qrData[idx++] = image.data[pixelIdx + 3];
+            }
           }
-        }
 
-        const code = jsQR(qrData, width, height);
+          code = jsQR(qrData, width, height);
+          if(code) break
+        }
         if (code) {
           const deck = readCompact(code.data, card_const);
           BrowserWindow.getAllWindows().forEach(win => {

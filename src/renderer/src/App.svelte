@@ -7,6 +7,7 @@
   import Collection from "./components/Collection.svelte";
   import DeckBuilder from "./components/DeckBuilder.svelte";
   import Draft from "./components/Draft.svelte";
+  import DraftNew from "./components/DraftNew.svelte";
   import Deal from "./components/Deal.svelte";
   import Decks from "./components/Decks.svelte";
   import { SvelteToast } from '@zerodevx/svelte-toast'
@@ -28,8 +29,11 @@
     "/app/deckbuilder": DeckBuilder,
     "/app/deal": Deal,
     "/app/draft": Draft,
+    "/app/draftnew": DraftNew,
     //"/app/table": Table,
   }
+
+  const isWeb = window.electron.ipcRenderer.sendSync('get-isweb')
 
   onMount(() => {
     window.electron.ipcRenderer.on('new-deck', (_event, new_deck) => { newDeck(new_deck) });
@@ -57,8 +61,8 @@
     navigate(`/app/deckbuilder/`)
   }
 
-  function removeDeck(deck_id){
-    if(!confirm(`Вы уверены, что хотите удалить колоду «${$user_decks['decks'][deck_id].name}»?`)) return;
+  async function removeDeck(deck_id){
+    if(await window.electron.ipcRenderer.invoke('confirm-dialog', '', `Вы уверены, что хотите удалить колоду «${$user_decks['decks'][deck_id].name}»?`, ['Отмена', 'Да, удалить']) !== 1) return;
     user_decks.update(($user_decks) => {
       $user_decks['decks'].splice(deck_id, 1)
       return {...$user_decks, decks: $user_decks['decks']};
@@ -89,6 +93,7 @@
       <li><Link href="/" aria-current={$router.path == '/' ? 'page' : ''}>Коллекция</Link></li>
       <li class="driver-deck-build"><Link href={$currentDeck.deck_id === null || $router.path == `/app/${$deckEditMode}` ? '/app/decks' : `/app/${$deckEditMode}`} aria-current={['/app/decks','/app/deal','/app/deckbuilder'].includes($router.path) ? 'page' : ''}>Колоды</Link></li>
       <li class="driver-deck-limited"><Link href="/app/draft" aria-current={$router.path == '/app/draft' ? 'page' : ''}>Лимитед</Link></li>
+      {#if !isWeb && false}<li class="driver-deck-limited"><Link href="/app/draftnew" aria-current={$router.path == '/app/draftnew' ? 'page' : ''}>Драфт<sup>&nbsp;ß</sup></Link></li>{/if}
       <!-- li class="driver-deck-table"><Link href="/app/table" aria-current={$router.path == '/app/table' ? 'page' : ''}>Стол</Link></li -->
     </ul>
     <ul class="driver-second-menu">

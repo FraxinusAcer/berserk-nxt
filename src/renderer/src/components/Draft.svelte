@@ -221,8 +221,8 @@
     awaiter.set({ awaiting: {} })
   }
 
-  function breakDraft() {
-    if(!confirm("Если не закончил и не сохранил колоду, повторить набор не получится. Уверен, что готов завершить?")) return;
+  async function breakDraft() {
+    if(await window.electron.ipcRenderer.invoke('confirm-dialog', '', "Если не закончил и не сохранил колоду, повторить набор не получится. Уверен, что готов завершить?", ['Отмена', 'Да, завершить']) !== 1) return
     toast.pop(0)
     setSecondLevelMenu()
     setup({ step: 0, draft_key: '', new_draft_key: '', last_draft_key: [$draft.draft_key, ...$draft.last_draft_key].slice(0,10), boosters: [], last_boosters: [] })
@@ -538,7 +538,8 @@
 </script>
 
 {#if $draft.step <= 3}
-  <!-- a href="https://t.me/+w0mT8aSk6xVlMTQ6" target="_blank" id="ellion">&nbsp;</a -->
+  <a href="https://crowdrepublic.ru/projects/1072863?utm_source=nxt&utm_medium=banner&utm_campaign=bk2025" target="_blank" id="ellion">&nbsp;</a>
+  <a href="https://crowdrepublic.ru/projects/1072863?utm_source=nxt&utm_medium=banner&utm_campaign=bk2025" target="_blank" id="ellion-text">&nbsp;</a>
   <section
     class="content draft_form"
     use:shortcuts={{ keyboard: true }}

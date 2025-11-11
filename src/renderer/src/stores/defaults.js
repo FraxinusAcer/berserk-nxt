@@ -85,6 +85,16 @@ export const default_draft_options = {
   user_uuid: null
 }
 
+export const default_draft_new_options = {
+  player_name: "",
+  step: 0,
+  draft_key: "",
+  player_key: "",
+  player_count: 8,
+  cardSize: {booster: 180, draftdeck: 130, deck: 160, side: 130},
+  boosters_set: ["50","60","60","","",""]
+}
+
 export const default_deal_options = {
   deck_id: null,
   cardSize: 160,
@@ -108,6 +118,7 @@ export const default_settings = {
   collection_options: default_collection_options,
   deckbuilding_options: default_deckbuilding_options,
   draft_options: default_draft_options,
+  draft_new_options: default_draft_options,
   deal_options: default_deal_options,
   other_options: default_other_options
 }

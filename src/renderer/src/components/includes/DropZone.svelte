@@ -11,6 +11,8 @@
   import { user_decks } from '../../stores/user_data.js';
   import { setDeckId } from '../../stores/interface.js';
 
+  const isWeb = window.electron.ipcRenderer.sendSync('get-isweb')
+
   let isDraggingOver = false;
   let dragCounter = 0;
 
@@ -72,26 +74,20 @@
               try {
                 const img = new Image();
                 img.onload = function() {
-                  const canvas = document.createElement('canvas');
-                  const ctx = canvas.getContext('2d');
+                  let canvas = document.createElement('canvas');
+                  let ctx = canvas.getContext('2d');
+                  let code
 
-                  if (img.width > 1600) {
-                    canvas.width = img.width / 2
-                    canvas.height = img.height / 2
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-                    img.src = canvas.toDataURL()
-                    return
+                  for (let size of [900, 600, 300, 150, 100]) {
+                    canvas.width = size
+                    canvas.height = size
+                    ctx.drawImage(img, 0, img.height - size, size, size, 0, 0, size, size)
+
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                    code = jsQR(imageData.data, imageData.width, imageData.height)
+                    if(code) break
                   }
 
-                  const cropWidth = 300
-                  const cropHeight = 300
-                  canvas.width = cropWidth
-                  canvas.height = cropHeight
-
-                  ctx.drawImage(img, 0, img.height - cropHeight, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
-
-                  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-                  const code = jsQR(imageData.data, imageData.width, imageData.height)
                   if(!code) return
                   const deck = readCompact(code.data)
                   if(deck.length > 0) {
@@ -129,8 +125,10 @@
     }
 
     window.electron.ipcRenderer.on('deeplink', (_, url) => handleDeeplink(url))
-    const initial = window.electron.ipcRenderer.sendSync('get-deeplink')
-    handleDeeplink(initial)
+    if(!isWeb) {
+      const initial = window.electron.ipcRenderer.sendSync('get-deeplink')
+      handleDeeplink(initial)
+    }
 
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('dragenter', handleDragEnter);

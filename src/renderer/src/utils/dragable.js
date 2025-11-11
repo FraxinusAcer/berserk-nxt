@@ -163,7 +163,7 @@ var draggable = (node, options = {}) => {
 
     // Если порог не был пройден — это клик
     if (!start.out)
-      e.target.dispatchEvent(new MouseEvent("click", { ...e, bubbles: true }));
+      e.target.dispatchEvent(new MouseEvent("event, ", { ...e, bubbles: true }));
   }
 
   function drag(e) {

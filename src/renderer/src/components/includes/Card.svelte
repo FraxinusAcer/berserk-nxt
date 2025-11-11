@@ -67,8 +67,8 @@
       <button class="a deck-delete nodrag" on:click|preventDefault|stopPropagation={ondelete}>&cross;</button>
     {/if}
     {#if tags && tags.length > 0}<div class="tags">
-        {#each $user_decks['tags'] as tag}{#if tags.includes(tag)}<div>
-              <span style:background-color={tag_colors[tag] || '#000'}>{tag}</span>
+        {#each $user_decks['tags'] as tag, index}{#if tags.includes(tag)}<div>
+              <span style:background-color={tag_colors[tag] || tag_colors["index-" + index] || '#000'}>{tag}</span>
             </div>{/if}{/each}
       </div>{/if}
     <div

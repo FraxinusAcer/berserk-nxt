@@ -110,9 +110,13 @@
     height: calc(100% - 150px - 5em);
   }
 
+  #ellion, #ellion-text {
+    margin-top: 60px;
+  }
+
   .draft_form {
     max-width: none;
-    margin: 0 2vw;
+    //margin: 0 2vw;
   }
 }
 

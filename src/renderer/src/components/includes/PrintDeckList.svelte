@@ -66,7 +66,7 @@
                   </table>
               </div>
 
-              <div style="display: flex; grid-gap: 1vw;">
+              <div style="display: flex; grid-gap: 1vw; align-items: flex-start;">
                   <table style="width: 100%">
                       <thead>
                           <tr><th style="width: 10%">&nbsp;</th><th>Колода № 1</th></tr>
